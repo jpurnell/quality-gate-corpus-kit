@@ -41,6 +41,24 @@ public struct ModuleOrientationCard: Sendable, Codable, Equatable {
     /// Timestamp of the run that produced this card.
     public let generatedAt: Date
 
+    /// Tolerant decoding: `dependsOn` was added after the first cards were
+    /// written; absent → empty (additive field, no schema bump).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        moduleID = try c.decode(String.self, forKey: .moduleID)
+        whatItDoes = try c.decodeIfPresent(String.self, forKey: .whatItDoes)
+        why = try c.decodeIfPresent(String.self, forKey: .why)
+        dependsOn = try c.decodeIfPresent([String].self, forKey: .dependsOn) ?? []
+        reliedOnBy = try c.decodeIfPresent([String].self, forKey: .reliedOnBy) ?? []
+        role = try c.decodeIfPresent(String.self, forKey: .role) ?? "unknown"
+        source = try c.decodeIfPresent(ProseSource.self, forKey: .source) ?? .template
+        generatedAt = try c.decode(Date.self, forKey: .generatedAt)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case moduleID, whatItDoes, why, dependsOn, reliedOnBy, role, source, generatedAt
+    }
+
     /// Creates a module orientation card.
     public init(
         moduleID: String,
@@ -70,7 +88,11 @@ public struct ModuleOrientationCard: Sendable, Codable, Equatable {
 /// File convention: `telemetry/<projectID>/YYYY-MM-DD/HHmmss_orientation.json`.
 /// Mirrors `ComplexityReport`'s per-run/per-module shape so the dashboard reads it
 /// the same way and matches a module by `ModuleOrientationCard.moduleID`.
-public struct OrientationReport: Sendable, Codable, Equatable {
+public struct OrientationReport: VersionedCorpusArtifact, Equatable {
+    /// The schema version this build writes (Phase 0.5).
+    public static let currentSchemaVersion = 1
+    /// The schema version this artifact was written with (absent pre-0.5 → 1).
+    public let schemaVersion: Int
     /// Project identifier matching the corpus hierarchy.
     public let projectID: String
     /// Timestamp of the gate run that produced this report.
@@ -93,11 +115,29 @@ public struct OrientationReport: Sendable, Codable, Equatable {
         packageDependsOn: [String] = [],
         packageSummary: String? = nil
     ) {
+        self.schemaVersion = Self.currentSchemaVersion
         self.projectID = projectID
         self.timestamp = timestamp
         self.cards = cards
         self.packageDependsOn = packageDependsOn
         self.packageSummary = packageSummary
+    }
+
+    /// Tolerant decoding (fixes a live bug: pre-E1 artifacts in the real
+    /// corpus lack `packageDependsOn`/`packageSummary` and were being
+    /// misclassified as malformed JSON and silently skipped by readers).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        projectID = try c.decode(String.self, forKey: .projectID)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        cards = try c.decodeIfPresent([ModuleOrientationCard].self, forKey: .cards) ?? []
+        packageDependsOn = try c.decodeIfPresent([String].self, forKey: .packageDependsOn) ?? []
+        packageSummary = try c.decodeIfPresent(String.self, forKey: .packageSummary)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, projectID, timestamp, cards, packageDependsOn, packageSummary
     }
 
     /// The card for a specific module, if present.

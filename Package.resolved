@@ -1,0 +1,24 @@
+{
+  "originHash" : "8ce3ec5f6d07d3677cdef47bde2c9874f0cb4cf4c4e6785926bc0b484ce51f38",
+  "pins" : [
+    {
+      "identity" : "quality-gate-types",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpurnell/quality-gate-types.git",
+      "state" : {
+        "revision" : "5d0eb911627e264c9d7631c19c041a38fef82349",
+        "version" : "1.1.1"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "3d6871d5b4a5cd519adf233fbb576e0a2af71c17",
+        "version" : "5.4.0"
+      }
+    }
+  ],
+  "version" : 3
+}

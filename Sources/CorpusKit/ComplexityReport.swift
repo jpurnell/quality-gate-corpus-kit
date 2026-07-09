@@ -4,7 +4,12 @@ import Foundation
 ///
 /// Stores aggregate complexity metrics for trend analysis by the PulseRefiner.
 /// File convention: `telemetry/<projectID>/YYYY-MM-DD/HHmmss_complexity.json`
-public struct ComplexityReport: Sendable, Codable, Equatable {
+public struct ComplexityReport: VersionedCorpusArtifact, Equatable {
+    /// The corpus schema version this build writes.
+    public static let currentSchemaVersion = 1
+
+    /// The corpus schema version this artifact was written with.
+    public let schemaVersion: Int
     /// Project identifier matching the corpus hierarchy.
     public let projectID: String
     /// Timestamp of the gate run that produced this report.
@@ -21,10 +26,21 @@ public struct ComplexityReport: Sendable, Codable, Equatable {
         modules: [ModuleComplexityReport],
         summary: ComplexitySummary
     ) {
+        self.schemaVersion = Self.currentSchemaVersion
         self.projectID = projectID
         self.timestamp = timestamp
         self.modules = modules
         self.summary = summary
+    }
+
+    /// Decodes a report, treating pre-versioning artifacts as schema v1.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        projectID = try container.decode(String.self, forKey: .projectID)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        modules = try container.decode([ModuleComplexityReport].self, forKey: .modules)
+        summary = try container.decode(ComplexitySummary.self, forKey: .summary)
     }
 }
 

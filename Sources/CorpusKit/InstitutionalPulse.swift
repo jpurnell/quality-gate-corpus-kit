@@ -5,7 +5,12 @@ import Foundation
 /// Each Pulse covers a fixed time window (typically one week) and contains
 /// computed statistics with full trend analysis and anomaly detection,
 /// violation clusters, and optional narrative.
-public struct InstitutionalPulse: Sendable, Codable, Equatable {
+public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
+    /// The corpus schema version this build writes.
+    public static let currentSchemaVersion = 1
+
+    /// The corpus schema version this artifact was written with.
+    public let schemaVersion: Int
     /// The time window this Pulse covers.
     public let windowStart: Date
     /// End of the time window (exclusive).
@@ -39,6 +44,7 @@ public struct InstitutionalPulse: Sendable, Codable, Equatable {
     public let currentSnapshot: CurrentSnapshot?
 
     private enum CodingKeys: String, CodingKey {
+        case schemaVersion
         case windowStart, windowEnd, weekLabel, label, projects
         case statistics, violationClusters, proposedPolicyUpdates
         case calibrationSummaries, narrative, generatedAt
@@ -64,6 +70,7 @@ public struct InstitutionalPulse: Sendable, Codable, Equatable {
         groupSnapshots: [String: [DailySnapshot]]? = nil,
         currentSnapshot: CurrentSnapshot? = nil
     ) {
+        self.schemaVersion = Self.currentSchemaVersion
         self.windowStart = windowStart
         self.windowEnd = windowEnd
         self.weekLabel = weekLabel
@@ -105,6 +112,7 @@ public struct InstitutionalPulse: Sendable, Codable, Equatable {
     /// Decodes an institutional pulse, tolerating missing optional fields.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         windowStart = try container.decode(Date.self, forKey: .windowStart)
         windowEnd = try container.decode(Date.self, forKey: .windowEnd)
         weekLabel = try container.decode(String.self, forKey: .weekLabel)
@@ -125,6 +133,7 @@ public struct InstitutionalPulse: Sendable, Codable, Equatable {
     /// Encodes all pulse fields, omitting nil optional properties.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(windowStart, forKey: .windowStart)
         try container.encode(windowEnd, forKey: .windowEnd)
         try container.encode(weekLabel, forKey: .weekLabel)

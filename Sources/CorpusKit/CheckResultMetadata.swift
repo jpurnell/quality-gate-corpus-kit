@@ -61,7 +61,10 @@ public struct OverrideRecord: Sendable, Codable, Equatable {
 /// Bridges the gap between technical pass/fail status and human discernment
 /// by capturing decision ownership, override rationale, ethical flags, and
 /// institutional consistency scoring alongside standard checker results.
-public struct CheckResultMetadata: Sendable, Codable, Equatable {
+public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
+    /// The corpus schema version this build writes.
+    public static let currentSchemaVersion = 1
+
     /// Repository or project identifier.
     public let projectID: String
     /// When the quality gate was executed.
@@ -84,6 +87,9 @@ public struct CheckResultMetadata: Sendable, Codable, Equatable {
     public let complianceCount: Int
     /// Git commit SHA the gate ran against; the join key linking metrics to work-events. Nil if not a git repo.
     public let commitSHA: String?
+
+    /// The corpus schema version this artifact was written with.
+    public let schemaVersion: Int
 
     /// Creates a new check result metadata record.
     /// - Parameters:
@@ -122,11 +128,13 @@ public struct CheckResultMetadata: Sendable, Codable, Equatable {
         self.consistencyScore = consistencyScore
         self.complianceCount = complianceCount
         self.commitSHA = commitSHA
+        self.schemaVersion = Self.currentSchemaVersion
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         projectID = try container.decode(String.self, forKey: .projectID)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         environment = try container.decode(Environment.self, forKey: .environment)

@@ -6,7 +6,12 @@ import Foundation
 /// but *why* — including root cause analysis, adversarial dissent, and a summary suitable
 /// for inclusion in the Institutional Pulse. This ensures overrides become calibration events
 /// that improve the organization's collective judgment rather than silent bypasses.
-public struct JudgmentCalibration: Sendable, Codable, Equatable {
+public struct JudgmentCalibration: VersionedCorpusArtifact, Equatable {
+    /// The corpus schema version this build writes.
+    public static let currentSchemaVersion = 1
+
+    /// The corpus schema version this artifact was written with.
+    public let schemaVersion: Int
     /// When the override occurred.
     public let date: Date
     /// The stakeholder who authorized the override, per the DRM.
@@ -44,6 +49,7 @@ public struct JudgmentCalibration: Sendable, Codable, Equatable {
         proposedPolicyUpdate: String?,
         pulseContribution: String
     ) {
+        self.schemaVersion = Self.currentSchemaVersion
         self.date = date
         self.decisionOwner = decisionOwner
         self.practitioner = practitioner
@@ -52,5 +58,19 @@ public struct JudgmentCalibration: Sendable, Codable, Equatable {
         self.redTeamDissent = redTeamDissent
         self.proposedPolicyUpdate = proposedPolicyUpdate
         self.pulseContribution = pulseContribution
+    }
+
+    /// Decodes a calibration, treating pre-versioning artifacts as schema v1.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        date = try container.decode(Date.self, forKey: .date)
+        decisionOwner = try container.decode(String.self, forKey: .decisionOwner)
+        practitioner = try container.decode(String.self, forKey: .practitioner)
+        riskTier = try container.decode(RiskTier.self, forKey: .riskTier)
+        rootCauseAnalysis = try container.decode(RootCauseAnalysis.self, forKey: .rootCauseAnalysis)
+        redTeamDissent = try container.decode(String.self, forKey: .redTeamDissent)
+        proposedPolicyUpdate = try container.decodeIfPresent(String.self, forKey: .proposedPolicyUpdate)
+        pulseContribution = try container.decode(String.self, forKey: .pulseContribution)
     }
 }

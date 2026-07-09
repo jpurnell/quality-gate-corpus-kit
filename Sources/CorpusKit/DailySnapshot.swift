@@ -4,7 +4,12 @@ import Foundation
 ///
 /// DailySnapshots form the time series that TrendAnalysis operates on.
 /// They are persisted to the corpus by TelemetryWriter for historical baseline computation.
-public struct DailySnapshot: Sendable, Codable, Equatable {
+public struct DailySnapshot: VersionedCorpusArtifact, Equatable {
+    /// The corpus schema version this build writes.
+    public static let currentSchemaVersion = 1
+
+    /// The corpus schema version this artifact was written with.
+    public let schemaVersion: Int
     /// The date this snapshot covers.
     public let date: Date
     /// Project ID, or "corpus" for the corpus-wide aggregate.
@@ -70,6 +75,7 @@ public struct DailySnapshot: Sendable, Codable, Equatable {
         failuresByChecker: [String: Int],
         overridesByRiskTier: [RiskTier: Int]
     ) {
+        self.schemaVersion = Self.currentSchemaVersion
         self.date = date
         self.scope = scope
         self.gateRuns = gateRuns
@@ -79,5 +85,20 @@ public struct DailySnapshot: Sendable, Codable, Equatable {
         self.calibrations = calibrations
         self.failuresByChecker = failuresByChecker
         self.overridesByRiskTier = overridesByRiskTier
+    }
+
+    /// Decodes a snapshot, treating pre-versioning artifacts as schema v1.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        date = try container.decode(Date.self, forKey: .date)
+        scope = try container.decode(String.self, forKey: .scope)
+        gateRuns = try container.decode(Int.self, forKey: .gateRuns)
+        passedRuns = try container.decode(Int.self, forKey: .passedRuns)
+        failedRuns = try container.decode(Int.self, forKey: .failedRuns)
+        overrides = try container.decode(Int.self, forKey: .overrides)
+        calibrations = try container.decode(Int.self, forKey: .calibrations)
+        failuresByChecker = try container.decode([String: Int].self, forKey: .failuresByChecker)
+        overridesByRiskTier = try container.decode([RiskTier: Int].self, forKey: .overridesByRiskTier)
     }
 }

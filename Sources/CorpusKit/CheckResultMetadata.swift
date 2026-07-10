@@ -23,6 +23,18 @@ public enum Environment: String, Sendable, Codable {
     case ci
 }
 
+/// How the run's verdict was applied (Phase 4, trial mode).
+///
+/// Advisory runs are surveys: every finding downgraded to a note, exit 0.
+/// They are recorded — the survey is the point — but statistics that mean
+/// "the gate was green" must exclude them.
+public enum GateMode: String, Sendable, Codable {
+    /// Findings gate normally — the default.
+    case standard
+    /// `--advisory-all`: findings reported, nothing gates, exit 0.
+    case advisory
+}
+
 /// Whose repository the gate ran against (Phase 1, overlay model).
 ///
 /// Foreign runs record under the upstream identity but stay distinguishable
@@ -124,6 +136,10 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// Nil on pre-Phase-2 artifacts (defaulted — not a bump).
     public let host: String?
 
+    /// How the run's verdict was applied. Pre-Phase-4 artifacts decode as
+    /// ``GateMode/standard`` (defaulted field — not a schema bump).
+    public let gateMode: GateMode
+
     /// The writer-identity key the second-writer tripwire clusters on:
     /// `ci:<provider>:<actor>` when provider-verified, else
     /// `asserted:<owner>@<host>` (or `asserted:<owner>` for legacy artifacts
@@ -172,7 +188,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         gateBuild: GateBuild? = nil,
         identityKind: IdentityKind = .resident,
         ciIdentity: CIIdentity? = nil,
-        host: String? = nil
+        host: String? = nil,
+        gateMode: GateMode = .standard
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -191,6 +208,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.identityKind = identityKind
         self.ciIdentity = ciIdentity
         self.host = host
+        self.gateMode = gateMode
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -213,5 +231,6 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         identityKind = try container.decodeIfPresent(IdentityKind.self, forKey: .identityKind) ?? .resident
         ciIdentity = try container.decodeIfPresent(CIIdentity.self, forKey: .ciIdentity)
         host = try container.decodeIfPresent(String.self, forKey: .host)
+        gateMode = try container.decodeIfPresent(GateMode.self, forKey: .gateMode) ?? .standard
     }
 }

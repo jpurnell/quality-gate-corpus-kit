@@ -526,3 +526,82 @@ struct CIIdentityMetadataTests {
         #expect(legacy.writerIdentity == "asserted:jpurnell")
     }
 }
+
+/// Phase 4 §3 (trial mode) — gate-mode honesty.
+///
+/// `--advisory-all` runs are surveys, not gates: they must be recorded, and
+/// they must never count toward pass-rate statistics. Same statistical-
+/// honesty pattern as runScope (0.1). Defaulted field — not a schema bump;
+/// pre-Phase-4 artifacts decode as `.standard`.
+@Suite("CheckResultMetadata gateMode")
+struct GateModeTests {
+
+    private func makeMeta(gateMode: GateMode) -> CheckResultMetadata {
+        CheckResultMetadata(
+            projectID: "fixture",
+            timestamp: Date(timeIntervalSince1970: 1_777_536_311),
+            environment: .local,
+            decisionOwner: "jpurnell",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil,
+            gateMode: gateMode)
+    }
+
+    @Test("raw values are stable")
+    func rawValues() {
+        #expect(GateMode.standard.rawValue == "standard")
+        #expect(GateMode.advisory.rawValue == "advisory")
+    }
+
+    @Test("advisory round-trips and appears in the encoded JSON")
+    func advisoryRoundTrip() throws {
+        let meta = makeMeta(gateMode: .advisory)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(meta)
+        #expect(String(data: data, encoding: .utf8)?.contains("\"advisory\"") == true)
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: data)
+        #expect(decoded.gateMode == .advisory)
+        #expect(decoded == meta)
+    }
+
+    @Test("omitting the parameter records a standard gate")
+    func defaultsToStandard() {
+        let meta = CheckResultMetadata(
+            projectID: "fixture",
+            timestamp: Date(timeIntervalSince1970: 0),
+            environment: .local,
+            decisionOwner: "t",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil)
+        #expect(meta.gateMode == .standard)
+    }
+
+    @Test("pre-Phase-4 artifacts without the field decode as standard")
+    func legacyDecodesAsStandard() throws {
+        let meta = makeMeta(gateMode: .standard)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var object = try JSONSerialization.jsonObject(
+            with: encoder.encode(meta)) as? [String: Any] ?? [:]
+        object.removeValue(forKey: "gateMode")
+        let stripped = try JSONSerialization.data(withJSONObject: object)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: stripped)
+        #expect(decoded.gateMode == .standard)
+    }
+
+    @Test("gateMode does not bump the schema version (defaulted field rule)")
+    func noSchemaBump() {
+        #expect(CheckResultMetadata.currentSchemaVersion == 2)
+    }
+}

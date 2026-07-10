@@ -83,9 +83,9 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         corpusTrends: [TrendAnalysis],
         projectTrends: [String: [TrendAnalysis]],
         anomalies: [StatisticalAnomaly],
-        projectHealth: ProjectHealthSummary? = nil,
         corpusSnapshots: [DailySnapshot] = [],
         projectSnapshots: [String: [DailySnapshot]] = [:],
+        projectHealth: ProjectHealthSummary? = nil,
         complexityTrends: [ComplexityTrend]? = nil,
         weightedScores: [String: Double]? = nil,
         gatedAnomalies: [AnomalyGate]? = nil

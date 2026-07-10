@@ -95,6 +95,9 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// Which checkers this run covered. Pre-v2 artifacts decode as ``RunScope/full``.
     public let runScope: RunScope
 
+    /// Build identity of the gate binary that produced this run, when known.
+    public let gateBuild: GateBuild?
+
     /// Creates a new check result metadata record.
     /// - Parameters:
     ///   - projectID: Repository or project identifier.
@@ -109,6 +112,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     ///   - complianceCount: Total compliance annotations verified.
     ///   - commitSHA: Git commit SHA the gate ran against; the join key linking metrics to work-events. Nil if not a git repo.
     ///   - runScope: Which checkers this run covered. Defaults to a full gate.
+    ///   - gateBuild: Build identity of the gate binary, when known.
     public init(
         projectID: String,
         timestamp: Date,
@@ -121,7 +125,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         consistencyScore: Double?,
         complianceCount: Int = 0,
         commitSHA: String? = nil,
-        runScope: RunScope = .full
+        runScope: RunScope = .full,
+        gateBuild: GateBuild? = nil
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -136,6 +141,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.commitSHA = commitSHA
         self.schemaVersion = Self.currentSchemaVersion
         self.runScope = runScope
+        self.gateBuild = gateBuild
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -154,5 +160,6 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         complianceCount = try container.decodeIfPresent(Int.self, forKey: .complianceCount) ?? 0
         commitSHA = try container.decodeIfPresent(String.self, forKey: .commitSHA)
         runScope = try container.decodeIfPresent(RunScope.self, forKey: .runScope) ?? .full
+        gateBuild = try container.decodeIfPresent(GateBuild.self, forKey: .gateBuild)
     }
 }

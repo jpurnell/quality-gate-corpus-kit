@@ -332,3 +332,87 @@ struct CheckResultMetadataTests {
         #expect(decoded == meta)
     }
 }
+
+/// Phase 1 (quality-gate overlay model) — identity kind.
+///
+/// Foreign runs record telemetry under the upstream identity but must be
+/// distinguishable from the project's own runs, so dashboards can group
+/// them separately and gate statistics stay honest. A defaulted field, so
+/// per the 0.5 bump rules this is NOT a schema bump: pre-Phase-1 artifacts
+/// decode as `.resident`.
+@Suite("CheckResultMetadata identityKind")
+struct IdentityKindTests {
+
+    private func makeMeta(identityKind: IdentityKind) -> CheckResultMetadata {
+        CheckResultMetadata(
+            projectID: "twostraws__ignite",
+            timestamp: Date(timeIntervalSince1970: 1_777_536_311),
+            environment: .local,
+            decisionOwner: "contributor",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil,
+            identityKind: identityKind
+        )
+    }
+
+    @Test("raw values are stable")
+    func rawValues() {
+        #expect(IdentityKind.resident.rawValue == "resident")
+        #expect(IdentityKind.foreign.rawValue == "foreign")
+    }
+
+    @Test("foreign round-trips and appears in the encoded JSON")
+    func foreignRoundTrip() throws {
+        let meta = makeMeta(identityKind: .foreign)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(meta)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        #expect(json.contains("\"identityKind\""))
+        #expect(json.contains("\"foreign\""))
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: data)
+        #expect(decoded.identityKind == .foreign)
+        #expect(decoded == meta)
+    }
+
+    @Test("omitting the parameter records a resident run")
+    func defaultsToResident() {
+        let meta = CheckResultMetadata(
+            projectID: "Test",
+            timestamp: Date(timeIntervalSince1970: 0),
+            environment: .local,
+            decisionOwner: "tester",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil
+        )
+        #expect(meta.identityKind == .resident)
+    }
+
+    @Test("pre-Phase-1 artifacts without the field decode as resident")
+    func legacyDecodesAsResident() throws {
+        let meta = makeMeta(identityKind: .resident)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var object = try JSONSerialization.jsonObject(
+            with: encoder.encode(meta)) as? [String: Any] ?? [:]
+        object.removeValue(forKey: "identityKind")
+        let stripped = try JSONSerialization.data(withJSONObject: object)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: stripped)
+        #expect(decoded.identityKind == .resident)
+    }
+
+    @Test("identityKind does not bump the schema version (defaulted field rule)")
+    func noSchemaBump() {
+        #expect(CheckResultMetadata.currentSchemaVersion == 2)
+    }
+}

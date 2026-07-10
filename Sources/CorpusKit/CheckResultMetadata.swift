@@ -23,6 +23,19 @@ public enum Environment: String, Sendable, Codable {
     case ci
 }
 
+/// Whose repository the gate ran against (Phase 1, overlay model).
+///
+/// Foreign runs record under the upstream identity but stay distinguishable
+/// from the project's own runs, so dashboards group them separately and gate
+/// statistics stay honest.
+public enum IdentityKind: String, Sendable, Codable {
+    /// The gate ran in the project's own checkout — today's normal run.
+    case resident
+    /// A contributor analyzed a repository they don't control; contributor
+    /// configuration, overlay-redirected writes.
+    case foreign
+}
+
 /// An override enriched with IJS judgment context.
 ///
 /// Wraps a `DiagnosticOverride` from the quality gate with institutional
@@ -98,6 +111,10 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// Build identity of the gate binary that produced this run, when known.
     public let gateBuild: GateBuild?
 
+    /// Whose repository the gate ran against. Pre-Phase-1 artifacts decode
+    /// as ``IdentityKind/resident`` (defaulted field — not a schema bump).
+    public let identityKind: IdentityKind
+
     /// Creates a new check result metadata record.
     /// - Parameters:
     ///   - projectID: Repository or project identifier.
@@ -113,6 +130,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     ///   - commitSHA: Git commit SHA the gate ran against; the join key linking metrics to work-events. Nil if not a git repo.
     ///   - runScope: Which checkers this run covered. Defaults to a full gate.
     ///   - gateBuild: Build identity of the gate binary, when known.
+    ///   - identityKind: Whose repository the gate ran against. Defaults to resident.
     public init(
         projectID: String,
         timestamp: Date,
@@ -126,7 +144,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         complianceCount: Int = 0,
         commitSHA: String? = nil,
         runScope: RunScope = .full,
-        gateBuild: GateBuild? = nil
+        gateBuild: GateBuild? = nil,
+        identityKind: IdentityKind = .resident
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -142,6 +161,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.schemaVersion = Self.currentSchemaVersion
         self.runScope = runScope
         self.gateBuild = gateBuild
+        self.identityKind = identityKind
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -161,5 +181,6 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         commitSHA = try container.decodeIfPresent(String.self, forKey: .commitSHA)
         runScope = try container.decodeIfPresent(RunScope.self, forKey: .runScope) ?? .full
         gateBuild = try container.decodeIfPresent(GateBuild.self, forKey: .gateBuild)
+        identityKind = try container.decodeIfPresent(IdentityKind.self, forKey: .identityKind) ?? .resident
     }
 }

@@ -299,7 +299,8 @@ public actor TelemetryWriter {
     /// - Returns: The latest pulse, or `nil` if no pulses exist.
     /// - Throws: `IJSError.telemetryReadFailed` if deserialization fails.
     public func readLatestPulse(
-        from corpusPath: CorpusPath
+        from corpusPath: CorpusPath,
+        beforeWeek: String? = nil
     ) async throws -> InstitutionalPulse? {
         let pulseRootURL = URL(fileURLWithPath: corpusPath.pulseRoot)
             .standardized.resolvingSymlinksInPath()
@@ -346,6 +347,9 @@ public actor TelemetryWriter {
 
         for labelDir in labelDirs {
             let dirLabel = labelDir.lastPathComponent
+            // beforeWeek excludes the current label (and anything newer) so a
+            // refine run can find its predecessor (drift #11, org heritage).
+            if let limit = beforeWeek, dirLabel >= limit { continue }
             let filePath = corpusPath.pulsePath(weekLabel: dirLabel)
             let fileURL = URL(fileURLWithPath: filePath).standardized.resolvingSymlinksInPath()
             guard fileURL.path.hasPrefix(baseURL.path) else { continue }

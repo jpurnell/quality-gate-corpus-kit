@@ -115,6 +115,29 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// as ``IdentityKind/resident`` (defaulted field — not a schema bump).
     public let identityKind: IdentityKind
 
+    /// Provider-verified identity when the run happened in CI (Phase 2).
+    /// Nil for local runs and pre-Phase-2 artifacts (defaulted — not a bump).
+    public let ciIdentity: CIIdentity?
+
+    /// Machine attribution for asserted (local) runs, so the second-writer
+    /// tripwire can tell "same person, two Macs" from "two people".
+    /// Nil on pre-Phase-2 artifacts (defaulted — not a bump).
+    public let host: String?
+
+    /// The writer-identity key the second-writer tripwire clusters on:
+    /// `ci:<provider>:<actor>` when provider-verified, else
+    /// `asserted:<owner>@<host>` (or `asserted:<owner>` for legacy artifacts
+    /// with no host attribution).
+    public var writerIdentity: String {
+        if let ci = ciIdentity {
+            return "ci:\(ci.provider):\(ci.actor)"
+        }
+        if let host {
+            return "asserted:\(decisionOwner)@\(host)"
+        }
+        return "asserted:\(decisionOwner)"
+    }
+
     /// Creates a new check result metadata record.
     /// - Parameters:
     ///   - projectID: Repository or project identifier.
@@ -131,6 +154,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     ///   - runScope: Which checkers this run covered. Defaults to a full gate.
     ///   - gateBuild: Build identity of the gate binary, when known.
     ///   - identityKind: Whose repository the gate ran against. Defaults to resident.
+    ///   - ciIdentity: Provider-verified identity for CI runs. Defaults to nil (asserted run).
+    ///   - host: Machine attribution for asserted runs. Defaults to nil.
     public init(
         projectID: String,
         timestamp: Date,
@@ -145,7 +170,9 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         commitSHA: String? = nil,
         runScope: RunScope = .full,
         gateBuild: GateBuild? = nil,
-        identityKind: IdentityKind = .resident
+        identityKind: IdentityKind = .resident,
+        ciIdentity: CIIdentity? = nil,
+        host: String? = nil
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -162,6 +189,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.runScope = runScope
         self.gateBuild = gateBuild
         self.identityKind = identityKind
+        self.ciIdentity = ciIdentity
+        self.host = host
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -182,5 +211,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         runScope = try container.decodeIfPresent(RunScope.self, forKey: .runScope) ?? .full
         gateBuild = try container.decodeIfPresent(GateBuild.self, forKey: .gateBuild)
         identityKind = try container.decodeIfPresent(IdentityKind.self, forKey: .identityKind) ?? .resident
+        ciIdentity = try container.decodeIfPresent(CIIdentity.self, forKey: .ciIdentity)
+        host = try container.decodeIfPresent(String.self, forKey: .host)
     }
 }

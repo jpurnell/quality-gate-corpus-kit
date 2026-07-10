@@ -416,3 +416,113 @@ struct IdentityKindTests {
         #expect(CheckResultMetadata.currentSchemaVersion == 2)
     }
 }
+
+/// Phase 2 (CI parity) — verified CI identity + machine attribution.
+///
+/// `CIIdentity` is the first identity in the ecosystem verified by an
+/// external system (the CI provider) rather than asserted. `host` gives
+/// asserted local runs a machine attribution so the second-writer tripwire
+/// can distinguish "same person, two Macs" from "two people". Both are
+/// defaulted fields — per the 0.5 bump rules, NOT a schema bump.
+@Suite("CheckResultMetadata CIIdentity")
+struct CIIdentityMetadataTests {
+
+    private static let sample = CIIdentity(
+        provider: "github-actions",
+        actor: "jpurnell",
+        workflowRunID: "9876543210",
+        commit: "abc123def456",
+        repository: "jpurnell/quality-gate-swift")
+
+    private func makeMeta(ciIdentity: CIIdentity?, host: String? = nil) -> CheckResultMetadata {
+        CheckResultMetadata(
+            projectID: "jpurnell__quality-gate-swift",
+            timestamp: Date(timeIntervalSince1970: 1_777_536_311),
+            environment: ciIdentity == nil ? .local : .ci,
+            decisionOwner: "jpurnell",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil,
+            ciIdentity: ciIdentity,
+            host: host)
+    }
+
+    @Test("CIIdentity round-trips with every field intact")
+    func ciIdentityRoundTrip() throws {
+        let meta = makeMeta(ciIdentity: Self.sample)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(meta)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        #expect(json.contains("\"github-actions\""))
+        #expect(json.contains("\"9876543210\""))
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: data)
+        #expect(decoded.ciIdentity == Self.sample)
+        #expect(decoded == meta)
+    }
+
+    @Test("host attribution round-trips")
+    func hostRoundTrip() throws {
+        let meta = makeMeta(ciIdentity: nil, host: "studio.local")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: encoder.encode(meta))
+        #expect(decoded.host == "studio.local")
+    }
+
+    @Test("omitting both records an asserted, unattributed run (legacy shape)")
+    func defaultsToNil() {
+        let meta = CheckResultMetadata(
+            projectID: "Test",
+            timestamp: Date(timeIntervalSince1970: 0),
+            environment: .local,
+            decisionOwner: "tester",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil)
+        #expect(meta.ciIdentity == nil)
+        #expect(meta.host == nil)
+    }
+
+    @Test("pre-Phase-2 artifacts without the fields decode with nils")
+    func legacyDecodesAsNil() throws {
+        let meta = makeMeta(ciIdentity: Self.sample, host: "studio.local")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var object = try JSONSerialization.jsonObject(
+            with: encoder.encode(meta)) as? [String: Any] ?? [:]
+        object.removeValue(forKey: "ciIdentity")
+        object.removeValue(forKey: "host")
+        let stripped = try JSONSerialization.data(withJSONObject: object)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: stripped)
+        #expect(decoded.ciIdentity == nil)
+        #expect(decoded.host == nil)
+    }
+
+    @Test("ciIdentity does not bump the schema version (defaulted field rule)")
+    func noSchemaBump() {
+        #expect(CheckResultMetadata.currentSchemaVersion == 2)
+    }
+
+    @Test("writerIdentity: verified CI actor beats asserted owner+host")
+    func writerIdentityPrecedence() {
+        let ci = makeMeta(ciIdentity: Self.sample, host: "runner-1.local")
+        #expect(ci.writerIdentity == "ci:github-actions:jpurnell")
+
+        let local = makeMeta(ciIdentity: nil, host: "studio.local")
+        #expect(local.writerIdentity == "asserted:jpurnell@studio.local")
+
+        let legacy = makeMeta(ciIdentity: nil, host: nil)
+        #expect(legacy.writerIdentity == "asserted:jpurnell")
+    }
+}

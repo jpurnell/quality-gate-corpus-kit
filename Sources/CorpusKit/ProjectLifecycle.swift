@@ -44,6 +44,9 @@ public struct CorpusManifestEntry: Sendable, Codable, Equatable {
     }
 }
 
+/// Legacy name for ``CorpusManifestEntry`` (org-judgement-system heritage).
+public typealias ProjectEntry = CorpusManifestEntry
+
 /// A corpus manifest mapping project IDs to their lifecycle metadata.
 ///
 /// Stored as `manifest.yml` in the corpus root. Projects not present
@@ -91,6 +94,35 @@ public struct CorpusManifest: Sendable, Codable, Equatable {
     /// - Returns: The project's lifecycle state, or `.active` if not in the manifest.
     public func lifecycle(for projectID: String) -> ProjectLifecycle {
         projects[projectID]?.lifecycle ?? .active
+    }
+
+    /// Updates a project's lifecycle state, preserving any tier override.
+    /// - Parameters:
+    ///   - lifecycle: The new lifecycle state.
+    ///   - projectID: The project identifier.
+    ///   - reason: Optional human-readable reason for the change.
+    ///   - date: Timestamp of the change (defaults to now).
+    public mutating func setLifecycle(
+        _ lifecycle: ProjectLifecycle,
+        for projectID: String,
+        reason: String?,
+        at date: Date = Date()
+    ) {
+        projects[projectID] = CorpusManifestEntry(
+            lifecycle: lifecycle,
+            reason: reason,
+            changedAt: date,
+            tierOverride: projects[projectID]?.tierOverride
+        )
+    }
+
+    /// All project IDs with a given lifecycle.
+    /// - Parameter lifecycle: The lifecycle state to filter by.
+    /// - Returns: Project IDs matching the given state, in no guaranteed order.
+    public func projectIDs(matching lifecycle: ProjectLifecycle) -> [String] {
+        projects.compactMap { key, entry in
+            entry.lifecycle == lifecycle ? key : nil
+        }
     }
 
     /// Returns the group name for a project ID, or nil if ungrouped.

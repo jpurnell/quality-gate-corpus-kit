@@ -23,6 +23,8 @@ public struct TelemetryConfiguration: Sendable, Codable, Equatable {
     public let scorerWeights: ScorerWeights
     /// Documented exemptions from consistency finding matching.
     public let consistencyExemptions: [ConsistencyExemption]
+    /// Optional git remote URL for corpus synchronization.
+    public let remoteURL: String?
 
     /// Creates a new telemetry configuration.
     public init(
@@ -32,7 +34,8 @@ public struct TelemetryConfiguration: Sendable, Codable, Equatable {
         defaultRiskTier: RiskTier,
         environment: Environment?,
         scorerWeights: ScorerWeights = .defaults,
-        consistencyExemptions: [ConsistencyExemption] = []
+        consistencyExemptions: [ConsistencyExemption] = [],
+        remoteURL: String? = nil
     ) {
         self.projectID = projectID
         self.corpusPath = corpusPath
@@ -41,6 +44,7 @@ public struct TelemetryConfiguration: Sendable, Codable, Equatable {
         self.environment = environment
         self.scorerWeights = scorerWeights
         self.consistencyExemptions = consistencyExemptions
+        self.remoteURL = remoteURL
     }
 
     /// Loads configuration from the `ijs:` section of a `.quality-gate.yml` file.
@@ -115,7 +119,8 @@ public struct TelemetryConfiguration: Sendable, Codable, Equatable {
             decisionOwner: decisionOwner,
             defaultRiskTier: riskTier,
             environment: environment,
-            scorerWeights: scorerWeights
+            scorerWeights: scorerWeights,
+            remoteURL: ijsSection["remoteURL"] as? String
         )
     }
 }

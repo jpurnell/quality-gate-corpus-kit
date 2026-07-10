@@ -113,6 +113,125 @@ public actor TelemetryWriter {
         return union.sorted { $0.timestamp < $1.timestamp }
     }
 
+    /// Returns the most recent metadata artifact for a project, or `nil` when
+    /// the project has no telemetry.
+    ///
+    /// Scans daily directories newest-first and stops at the first hit.
+    public func readLatestMetadata(
+        from corpusPath: CorpusPath
+    ) async throws -> CheckResultMetadata? {
+        let projectURL = URL(fileURLWithPath: corpusPath.projectDirectory)
+            .standardized.resolvingSymlinksInPath()
+        // SAFETY: Path resolved via standardized + resolvingSymlinksInPath above
+        guard FileManager.default.fileExists(atPath: projectURL.path) else { return nil }
+
+        let baseURL = URL(fileURLWithPath: corpusPath.basePath)
+            .standardized.resolvingSymlinksInPath()
+
+        guard let contents = try? FileManager.default.contentsOfDirectory( // silent: returns nil when directory is unreadable
+            at: projectURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: .skipsHiddenFiles
+        ) else {
+            return nil
+        }
+
+        let dailyDirs = contents
+            .filter { url in
+                let resolved = url.resolvingSymlinksInPath()
+                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                var isDir: ObjCBool = false
+                // SAFETY: Path validated against base via hasPrefix above
+                return FileManager.default.fileExists(
+                    atPath: resolved.path, isDirectory: &isDir
+                ) && isDir.boolValue
+            }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+        for dir in dailyDirs {
+            let metadata = try Self.readMetadataFiles(in: dir, decoder: decoder)
+            if let latest = metadata.sorted(by: { $0.timestamp < $1.timestamp }).last {
+                return latest
+            }
+        }
+
+        return nil
+    }
+
+    /// Discovers all project directories under `<basePath>/telemetry`.
+    /// - Returns: One ``CorpusPath`` per project, sorted by project ID.
+    public func discoverProjects(in basePath: String) throws -> [CorpusPath] {
+        let telemetryURL = URL(fileURLWithPath: basePath)
+            .appendingPathComponent("telemetry")
+            .standardized.resolvingSymlinksInPath()
+        // SAFETY: Path is resolved via standardized + resolvingSymlinksInPath above
+        guard FileManager.default.fileExists(atPath: telemetryURL.path) else { return [] }
+
+        let baseURL = URL(fileURLWithPath: basePath)
+            .standardized.resolvingSymlinksInPath()
+
+        guard let contents = try? FileManager.default.contentsOfDirectory( // silent: returns empty when directory is unreadable
+            at: telemetryURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: .skipsHiddenFiles
+        ) else {
+            return []
+        }
+
+        return contents
+            .filter { url in
+                let resolved = url.resolvingSymlinksInPath()
+                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                var isDir: ObjCBool = false
+                // SAFETY: Path validated against base via hasPrefix above
+                return FileManager.default.fileExists(
+                    atPath: resolved.path, isDirectory: &isDir
+                ) && isDir.boolValue
+            }
+            .map { CorpusPath(basePath: basePath, projectID: $0.lastPathComponent) }
+            .sorted { $0.projectID < $1.projectID }
+    }
+
+    /// Loads the corpus manifest from `<basePath>/manifest.yml`, returning an
+    /// empty manifest when the file does not exist.
+    ///
+    /// Delegates to ``CorpusManifest/load(from:)`` — the hand-rolled format the
+    /// real corpus uses (org-judgement-system's Yams-Codable reader could not
+    /// parse quoted ISO dates; drift #3 reconciliation).
+    public func loadManifest(from basePath: String) async throws -> CorpusManifest {
+        let corpus = CorpusPath(basePath: basePath, projectID: "")
+        let fileURL = URL(fileURLWithPath: corpus.manifestPath)
+            .standardized.resolvingSymlinksInPath()
+        let baseURL = URL(fileURLWithPath: basePath)
+            .standardized.resolvingSymlinksInPath()
+
+        guard fileURL.path.hasPrefix(baseURL.path) else {
+            throw IJSError.telemetryReadFailed(
+                reason: "Manifest path escapes corpus base"
+            )
+        }
+        return try CorpusManifest.load(from: fileURL)
+    }
+
+    /// Writes the corpus manifest to `<basePath>/manifest.yml` in the
+    /// canonical hand-rolled format (see ``CorpusManifest/save(to:)``).
+    public func writeManifest(
+        _ manifest: CorpusManifest,
+        to basePath: String
+    ) async throws {
+        let corpus = CorpusPath(basePath: basePath, projectID: "")
+        let fileURL = try sanitizedURL(corpus.manifestPath, within: basePath)
+        do {
+            try manifest.save(to: fileURL)
+        } catch let error as IJSError {
+            throw error
+        } catch {
+            throw IJSError.telemetryWriteFailed(
+                reason: "Cannot write manifest to \(fileURL.path): \(error.localizedDescription)"
+            )
+        }
+    }
+
     /// Reads all calibration artifacts for a project within a date range (inclusive).
     ///
     /// Daily directories are scanned concurrently. Results are sorted by date.

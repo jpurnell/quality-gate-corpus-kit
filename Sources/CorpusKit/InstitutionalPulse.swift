@@ -34,6 +34,10 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
     public let narrative: String?
     /// When this Pulse was generated.
     public let generatedAt: Date
+    /// Projects sunset during (or as of) this window; excluded from active metrics.
+    public let sunsetProjects: [String]
+    /// First-seen week label per proposed policy update, keyed by proposal text.
+    public let proposalFirstSeen: [String: String]?
     /// Per-project tier classifications based on engagement level.
     public let projectTiers: [String: ProjectTier]?
     /// Per-project trajectory analyses for weighted quality scores.
@@ -48,6 +52,7 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         case windowStart, windowEnd, weekLabel, label, projects
         case statistics, violationClusters, proposedPolicyUpdates
         case calibrationSummaries, narrative, generatedAt
+        case sunsetProjects, proposalFirstSeen
         case projectTiers, projectTrajectories, groupSnapshots
         case currentSnapshot
     }
@@ -65,6 +70,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         calibrationSummaries: [String],
         narrative: String?,
         generatedAt: Date,
+        sunsetProjects: [String] = [],
+        proposalFirstSeen: [String: String]? = nil,
         projectTiers: [String: ProjectTier]? = nil,
         projectTrajectories: [ProjectTrajectory]? = nil,
         groupSnapshots: [String: [DailySnapshot]]? = nil,
@@ -82,6 +89,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         self.calibrationSummaries = calibrationSummaries
         self.narrative = narrative
         self.generatedAt = generatedAt
+        self.sunsetProjects = sunsetProjects
+        self.proposalFirstSeen = proposalFirstSeen
         self.projectTiers = projectTiers
         self.projectTrajectories = projectTrajectories
         self.groupSnapshots = groupSnapshots
@@ -102,6 +111,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
             calibrationSummaries: calibrationSummaries,
             narrative: text,
             generatedAt: generatedAt,
+            sunsetProjects: sunsetProjects,
+            proposalFirstSeen: proposalFirstSeen,
             projectTiers: projectTiers,
             projectTrajectories: projectTrajectories,
             groupSnapshots: groupSnapshots,
@@ -124,6 +135,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         calibrationSummaries = try container.decode([String].self, forKey: .calibrationSummaries)
         narrative = try container.decodeIfPresent(String.self, forKey: .narrative)
         generatedAt = try container.decode(Date.self, forKey: .generatedAt)
+        sunsetProjects = try container.decodeIfPresent([String].self, forKey: .sunsetProjects) ?? []
+        proposalFirstSeen = try container.decodeIfPresent([String: String].self, forKey: .proposalFirstSeen)
         projectTiers = try container.decodeIfPresent([String: ProjectTier].self, forKey: .projectTiers)
         projectTrajectories = try container.decodeIfPresent([ProjectTrajectory].self, forKey: .projectTrajectories)
         groupSnapshots = try container.decodeIfPresent([String: [DailySnapshot]].self, forKey: .groupSnapshots)
@@ -145,6 +158,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         try container.encode(calibrationSummaries, forKey: .calibrationSummaries)
         try container.encodeIfPresent(narrative, forKey: .narrative)
         try container.encode(generatedAt, forKey: .generatedAt)
+        try container.encode(sunsetProjects, forKey: .sunsetProjects)
+        try container.encodeIfPresent(proposalFirstSeen, forKey: .proposalFirstSeen)
         try container.encodeIfPresent(projectTiers, forKey: .projectTiers)
         try container.encodeIfPresent(projectTrajectories, forKey: .projectTrajectories)
         try container.encodeIfPresent(groupSnapshots, forKey: .groupSnapshots)

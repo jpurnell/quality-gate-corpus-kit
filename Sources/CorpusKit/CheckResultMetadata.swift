@@ -2,7 +2,7 @@ import Foundation
 import QualityGateTypes
 
 /// Ethical risk signals detected by the quality gate's automated auditors.
-public enum EthicalFlag: String, Sendable, Codable {
+public enum EthicalFlag: String, Sendable, Codable, CaseIterable {
     /// Data collection without meaningful user consent.
     case unauthorizedDataCollection // LIVE: domain taxonomy for ethical audit findings
     /// UI patterns designed to trick users into unintended actions.

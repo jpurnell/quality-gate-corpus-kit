@@ -31,6 +31,8 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
     public let projectTrends: [String: [TrendAnalysis]]
     /// Statistical anomalies detected in this window.
     public let anomalies: [StatisticalAnomaly]
+    /// Per-project health summary from each project's latest run (nil when not computed).
+    public let projectHealth: ProjectHealthSummary?
     /// Corpus-wide daily snapshots for the window.
     public let corpusSnapshots: [DailySnapshot]
     /// Per-project daily snapshots, keyed by project ID.
@@ -60,6 +62,7 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         case rootCauseDistribution, failedStepDistribution
         case meanConsistencyScore
         case corpusTrends, projectTrends, anomalies
+        case projectHealth
         case corpusSnapshots, projectSnapshots
         case complexityTrends
         case weightedScores, gatedAnomalies
@@ -72,16 +75,17 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         failedRuns: Int,
         totalOverrides: Int,
         totalCalibrations: Int,
-        overridesByRiskTier: [RiskTier: Int],
-        failuresByChecker: [String: Int],
-        rootCauseDistribution: [String: Int],
-        failedStepDistribution: [FiveStepStage: Int],
-        meanConsistencyScore: Double?,
+        overridesByRiskTier: [RiskTier: Int] = [:],
+        failuresByChecker: [String: Int] = [:],
+        rootCauseDistribution: [String: Int] = [:],
+        failedStepDistribution: [FiveStepStage: Int] = [:],
+        meanConsistencyScore: Double? = nil,
         corpusTrends: [TrendAnalysis],
         projectTrends: [String: [TrendAnalysis]],
         anomalies: [StatisticalAnomaly],
-        corpusSnapshots: [DailySnapshot],
-        projectSnapshots: [String: [DailySnapshot]],
+        projectHealth: ProjectHealthSummary? = nil,
+        corpusSnapshots: [DailySnapshot] = [],
+        projectSnapshots: [String: [DailySnapshot]] = [:],
         complexityTrends: [ComplexityTrend]? = nil,
         weightedScores: [String: Double]? = nil,
         gatedAnomalies: [AnomalyGate]? = nil
@@ -99,6 +103,7 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         self.corpusTrends = corpusTrends
         self.projectTrends = projectTrends
         self.anomalies = anomalies
+        self.projectHealth = projectHealth
         self.corpusSnapshots = corpusSnapshots
         self.projectSnapshots = projectSnapshots
         self.complexityTrends = complexityTrends
@@ -114,16 +119,17 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         failedRuns = try container.decode(Int.self, forKey: .failedRuns)
         totalOverrides = try container.decode(Int.self, forKey: .totalOverrides)
         totalCalibrations = try container.decode(Int.self, forKey: .totalCalibrations)
-        overridesByRiskTier = try container.decode([RiskTier: Int].self, forKey: .overridesByRiskTier)
-        failuresByChecker = try container.decode([String: Int].self, forKey: .failuresByChecker)
-        rootCauseDistribution = try container.decode([String: Int].self, forKey: .rootCauseDistribution)
-        failedStepDistribution = try container.decode([FiveStepStage: Int].self, forKey: .failedStepDistribution)
+        overridesByRiskTier = try container.decodeIfPresent([RiskTier: Int].self, forKey: .overridesByRiskTier) ?? [:]
+        failuresByChecker = try container.decodeIfPresent([String: Int].self, forKey: .failuresByChecker) ?? [:]
+        rootCauseDistribution = try container.decodeIfPresent([String: Int].self, forKey: .rootCauseDistribution) ?? [:]
+        failedStepDistribution = try container.decodeIfPresent([FiveStepStage: Int].self, forKey: .failedStepDistribution) ?? [:]
         meanConsistencyScore = try container.decodeIfPresent(Double.self, forKey: .meanConsistencyScore)
         corpusTrends = try container.decode([TrendAnalysis].self, forKey: .corpusTrends)
         projectTrends = try container.decode([String: [TrendAnalysis]].self, forKey: .projectTrends)
         anomalies = try container.decode([StatisticalAnomaly].self, forKey: .anomalies)
-        corpusSnapshots = try container.decode([DailySnapshot].self, forKey: .corpusSnapshots)
-        projectSnapshots = try container.decode([String: [DailySnapshot]].self, forKey: .projectSnapshots)
+        projectHealth = try container.decodeIfPresent(ProjectHealthSummary.self, forKey: .projectHealth)
+        corpusSnapshots = try container.decodeIfPresent([DailySnapshot].self, forKey: .corpusSnapshots) ?? []
+        projectSnapshots = try container.decodeIfPresent([String: [DailySnapshot]].self, forKey: .projectSnapshots) ?? [:]
         complexityTrends = try container.decodeIfPresent([ComplexityTrend].self, forKey: .complexityTrends)
         weightedScores = try container.decodeIfPresent([String: Double].self, forKey: .weightedScores)
         gatedAnomalies = try container.decodeIfPresent([AnomalyGate].self, forKey: .gatedAnomalies)
@@ -145,6 +151,7 @@ public struct PulseStatistics: Sendable, Codable, Equatable {
         try container.encode(corpusTrends, forKey: .corpusTrends)
         try container.encode(projectTrends, forKey: .projectTrends)
         try container.encode(anomalies, forKey: .anomalies)
+        try container.encodeIfPresent(projectHealth, forKey: .projectHealth)
         try container.encode(corpusSnapshots, forKey: .corpusSnapshots)
         try container.encode(projectSnapshots, forKey: .projectSnapshots)
         try container.encodeIfPresent(complexityTrends, forKey: .complexityTrends)

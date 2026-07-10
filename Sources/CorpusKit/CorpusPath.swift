@@ -97,6 +97,16 @@ public struct CorpusPath: Sendable, Equatable {
         "\(basePath)/pulse"
     }
 
+    /// Narrative file path: `<basePath>/pulse/<weekLabel>/NARRATIVE_<weekLabel>.md`
+    public func narrativePath(weekLabel: String) -> String {
+        "\(pulseDirectory(weekLabel: weekLabel))/NARRATIVE_\(weekLabel).md"
+    }
+
+    /// Corpus manifest path: `<basePath>/manifest.yml`
+    public var manifestPath: String {
+        "\(basePath)/manifest.yml"
+    }
+
     private static let dayFormatter: DateFormatter = {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"

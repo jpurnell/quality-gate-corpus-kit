@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Each stage requires a different type of thinking. Chronic failure at one stage
 /// indicates a gap in the specific capability that stage demands.
-public enum FiveStepStage: String, Sendable, Codable {
+public enum FiveStepStage: String, Sendable, Codable, CaseIterable {
     /// Failure of higher-level thinking — wrong goals or misplaced priorities.
     case goals // LIVE: five-step methodology stage enum
     /// Failure of perception — problems tolerated or overlooked.

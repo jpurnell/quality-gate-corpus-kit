@@ -91,6 +91,28 @@ public actor TelemetryWriter {
         return allMetadata.sorted { $0.timestamp < $1.timestamp }
     }
 
+    /// Reads a project's metadata as the union of its identity directory and
+    /// any aliased legacy directories from the manifest (Phase 0.4).
+    ///
+    /// History stays where it was written — aliases let renamed or
+    /// re-identified projects keep one continuous time series.
+    ///
+    /// - Throws: `IJSError.telemetryReadFailed` if deserialization fails.
+    public func readMetadataUnion(
+        identity: String,
+        basePath: String,
+        manifest: CorpusManifest,
+        startDate: Date,
+        endDate: Date
+    ) async throws -> [CheckResultMetadata] {
+        var union: [CheckResultMetadata] = []
+        for directory in manifest.directories(for: identity) {
+            let path = CorpusPath(basePath: basePath, projectID: directory)
+            union += try await readMetadata(from: path, startDate: startDate, endDate: endDate)
+        }
+        return union.sorted { $0.timestamp < $1.timestamp }
+    }
+
     /// Reads all calibration artifacts for a project within a date range (inclusive).
     ///
     /// Daily directories are scanned concurrently. Results are sorted by date.

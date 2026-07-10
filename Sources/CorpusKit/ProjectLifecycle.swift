@@ -57,13 +57,33 @@ public struct CorpusManifest: Sendable, Codable, Equatable {
     /// Each value is an array of project IDs belonging to that group.
     public var groups: [String: [String]]
 
+    /// Identity aliases: legacy corpus directory name → stable identity.
+    ///
+    /// History stays in the legacy directory (no mass migration); readers
+    /// take the union of a project's identity directory and its aliases.
+    public var aliases: [String: String]
+
     /// Creates a new manifest.
     /// - Parameters:
     ///   - projects: Per-project lifecycle entries keyed by project ID.
     ///   - groups: Project group definitions keyed by group name.
-    public init(projects: [String: CorpusManifestEntry] = [:], groups: [String: [String]] = [:]) {
+    ///   - aliases: Legacy directory → identity map for corpus reads.
+    public init(
+        projects: [String: CorpusManifestEntry] = [:],
+        groups: [String: [String]] = [:],
+        aliases: [String: String] = [:]
+    ) {
         self.projects = projects
         self.groups = groups
+        self.aliases = aliases
+    }
+
+    /// Returns the corpus directory names holding a project's history:
+    /// the identity directory first, then its aliased legacy directories.
+    /// - Parameter identity: The stable project identity.
+    /// - Returns: Directory names in deterministic order.
+    public func directories(for identity: String) -> [String] {
+        [identity] + aliases.filter { $0.value == identity }.keys.sorted()
     }
 
     /// Returns the lifecycle state for a project, defaulting to ``ProjectLifecycle/active``.
@@ -131,9 +151,17 @@ public struct CorpusManifest: Sendable, Codable, Equatable {
             parsedGroups = [:]
         }
 
+        // Parse aliases section (legacy directory name → identity).
+        let parsedAliases: [String: String]
+        if let aliasesSection = root["aliases"] as? [String: Any] {
+            parsedAliases = aliasesSection.compactMapValues { $0 as? String }
+        } else {
+            parsedAliases = [:]
+        }
+
         guard let projectsSection = root["projects"] as? [String: Any] else {
             // Empty or missing projects section is valid — all projects are active
-            return CorpusManifest(groups: parsedGroups)
+            return CorpusManifest(groups: parsedGroups, aliases: parsedAliases)
         }
 
         let decoder = JSONDecoder()
@@ -179,7 +207,7 @@ public struct CorpusManifest: Sendable, Codable, Equatable {
             )
         }
 
-        return CorpusManifest(projects: entries, groups: parsedGroups)
+        return CorpusManifest(projects: entries, groups: parsedGroups, aliases: parsedAliases)
     }
 
     /// Saves the manifest to a YAML file, preserving the expected format.
@@ -221,6 +249,15 @@ public struct CorpusManifest: Sendable, Codable, Equatable {
                 for member in members.sorted() {
                     lines.append("    - \(member)")
                 }
+            }
+        }
+
+        if !aliases.isEmpty {
+            lines.append("")
+            lines.append("aliases:")
+            for legacyDir in aliases.keys.sorted() {
+                guard let identity = aliases[legacyDir] else { continue }
+                lines.append("  \"\(legacyDir)\": \"\(identity)\"")
             }
         }
 

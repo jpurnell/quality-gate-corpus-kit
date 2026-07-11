@@ -35,6 +35,31 @@ public enum GateMode: String, Sendable, Codable {
     case advisory
 }
 
+/// The decaying baseline's per-run counts (quality-gate Phase 4c §3).
+///
+/// When a run applied a `.quality-gate-baseline.json` ledger, these counts
+/// feed the dashboard's debt burn-down: covered debts should trend to zero,
+/// expired debts demand re-verification, and new findings gate immediately.
+public struct BaselineSnapshot: Sendable, Codable, Equatable {
+    /// Findings covered by unexpired baseline records — the remaining debt.
+    public let baselined: Int
+    /// Findings whose baseline record has expired — the re-verify queue.
+    public let expired: Int
+    /// Findings not in the ledger at all — gating now.
+    public let newFindings: Int
+
+    /// Creates a baseline snapshot.
+    /// - Parameters:
+    ///   - baselined: Findings covered by unexpired records.
+    ///   - expired: Findings whose records expired.
+    ///   - newFindings: Findings outside the ledger.
+    public init(baselined: Int, expired: Int, newFindings: Int) {
+        self.baselined = baselined
+        self.expired = expired
+        self.newFindings = newFindings
+    }
+}
+
 /// Whose repository the gate ran against (Phase 1, overlay model).
 ///
 /// Foreign runs record under the upstream identity but stay distinguishable
@@ -140,6 +165,11 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// ``GateMode/standard`` (defaulted field — not a schema bump).
     public let gateMode: GateMode
 
+    /// The applied baseline ledger's counts, when the run had one (Phase 4c).
+    /// Nil for runs without a ledger and pre-4c artifacts (defaulted — not a
+    /// schema bump).
+    public let baseline: BaselineSnapshot?
+
     /// The writer-identity key the second-writer tripwire clusters on:
     /// `ci:<provider>:<actor>` when provider-verified, else
     /// `asserted:<owner>@<host>` (or `asserted:<owner>` for legacy artifacts
@@ -189,7 +219,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         identityKind: IdentityKind = .resident,
         ciIdentity: CIIdentity? = nil,
         host: String? = nil,
-        gateMode: GateMode = .standard
+        gateMode: GateMode = .standard,
+        baseline: BaselineSnapshot? = nil
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -209,6 +240,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.ciIdentity = ciIdentity
         self.host = host
         self.gateMode = gateMode
+        self.baseline = baseline
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -232,5 +264,6 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         ciIdentity = try container.decodeIfPresent(CIIdentity.self, forKey: .ciIdentity)
         host = try container.decodeIfPresent(String.self, forKey: .host)
         gateMode = try container.decodeIfPresent(GateMode.self, forKey: .gateMode) ?? .standard
+        baseline = try container.decodeIfPresent(BaselineSnapshot.self, forKey: .baseline)
     }
 }

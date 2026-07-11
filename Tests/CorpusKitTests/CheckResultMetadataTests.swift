@@ -605,3 +605,73 @@ struct GateModeTests {
         #expect(CheckResultMetadata.currentSchemaVersion == 2)
     }
 }
+
+// MARK: - Baseline burn-down (quality-gate Phase 4c §3)
+
+/// The decaying baseline's dashboard feed: each run may carry the applied
+/// ledger's counts so the portfolio can render debt as a burn-down. Defaulted
+/// field — not a schema bump; artifacts without it decode as nil (no ledger).
+@Suite("CheckResultMetadata baseline")
+struct BaselineSnapshotTests {
+
+    private func makeMeta(baseline: BaselineSnapshot?) -> CheckResultMetadata {
+        CheckResultMetadata(
+            projectID: "fixture",
+            timestamp: Date(timeIntervalSince1970: 1_777_536_311),
+            environment: .local,
+            decisionOwner: "jpurnell",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil,
+            baseline: baseline)
+    }
+
+    @Test("baseline counts round-trip and appear in the encoded JSON")
+    func roundTrip() throws {
+        let snapshot = BaselineSnapshot(baselined: 42, expired: 3, newFindings: 1)
+        let meta = makeMeta(baseline: snapshot)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(meta)
+        #expect(String(data: data, encoding: .utf8)?.contains("\"baselined\":42") == true)
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: data)
+        #expect(decoded.baseline == snapshot)
+        #expect(decoded == meta)
+    }
+
+    @Test("omitting the parameter records no ledger")
+    func defaultsToNil() {
+        let meta = CheckResultMetadata(
+            projectID: "fixture",
+            timestamp: Date(timeIntervalSince1970: 0),
+            environment: .local,
+            decisionOwner: "t",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil)
+        #expect(meta.baseline == nil)
+    }
+
+    @Test("legacy artifacts without the field decode as nil")
+    func legacyDecodesAsNil() throws {
+        let meta = makeMeta(baseline: nil)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(meta)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: data)
+        #expect(decoded.baseline == nil)
+    }
+
+    @Test("baseline does not bump the schema version (defaulted field rule)")
+    func noSchemaBump() {
+        #expect(CheckResultMetadata.currentSchemaVersion == 2)
+    }
+}

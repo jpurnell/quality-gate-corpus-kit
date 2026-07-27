@@ -680,11 +680,39 @@ public actor TelemetryWriter {
 
     // MARK: - Path Sanitization
 
+    /// Validates that `path` is contained within `basePath` and returns a
+    /// filesystem URL anchored on the base's canonical (symlink-free) location.
+    ///
+    /// Containment is checked **lexically and component-wise**: the target is
+    /// standardized to collapse `.`/`..` without touching the filesystem, and
+    /// the base's path components must be an exact prefix of the target's. This
+    /// avoids two failure modes of a naive `hasPrefix` on symlink-resolved
+    /// strings:
+    /// - **Symlinked-base false rejection.** `resolvingSymlinksInPath()`
+    ///   canonicalizes an existing base and a not-yet-created target subtree
+    ///   asymmetrically (e.g. `/tmp` ↔ `/private/tmp`), so string prefixing
+    ///   spuriously fails and breaks every corpus write under a symlinked path.
+    /// - **Prefix-sibling escape.** String `hasPrefix` treats `/a/corpus-evil`
+    ///   as inside `/a/corpus`; component comparison rejects it.
+    ///
+    /// The validated relative suffix is re-anchored onto the base resolved once
+    /// via `resolvingSymlinksInPath()`, so the returned URL points at the real
+    /// location even when the base is reached through a symlink.
     private func sanitizedURL(_ path: String, within basePath: String) throws -> URL {
-        let resolved = URL(fileURLWithPath: path).standardized.resolvingSymlinksInPath()
-        let base = URL(fileURLWithPath: basePath).standardized.resolvingSymlinksInPath()
-        guard resolved.path.hasPrefix(base.path) else {
+        let lexicalBase = URL(fileURLWithPath: basePath).standardized
+        let lexicalTarget = URL(fileURLWithPath: path).standardized
+
+        let baseComponents = lexicalBase.pathComponents
+        let targetComponents = lexicalTarget.pathComponents
+
+        guard targetComponents.count >= baseComponents.count,
+              Array(targetComponents.prefix(baseComponents.count)) == baseComponents else {
             throw IJSError.telemetryWriteFailed(reason: "Path \(path) escapes corpus base \(basePath)")
+        }
+
+        var resolved = URL(fileURLWithPath: basePath).resolvingSymlinksInPath()
+        for component in targetComponents.dropFirst(baseComponents.count) {
+            resolved.appendPathComponent(component)
         }
         return resolved
     }

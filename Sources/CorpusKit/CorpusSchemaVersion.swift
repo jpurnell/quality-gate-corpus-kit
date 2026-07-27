@@ -55,7 +55,7 @@ public enum CorpusSchema {
         let peeked = try decoder.decode(SchemaVersionPeek.self, from: data)
         let version = peeked.schemaVersion ?? 1
         guard version <= T.currentSchemaVersion else {
-            logger.notice("corpus.schema-newer: \(origin, privacy: .public) is schema v\(version) but this build supports up to v\(T.currentSchemaVersion) — skipped, not half-decoded")
+            logger.notice("corpus.schema-newer: \(origin, privacy: .public) is schema v\(version, privacy: .public) but this build supports up to v\(T.currentSchemaVersion, privacy: .public) — skipped, not half-decoded")
             return .skippedNewer(artifactVersion: version, supported: T.currentSchemaVersion)
         }
         return .decoded(try decoder.decode(T.self, from: data))

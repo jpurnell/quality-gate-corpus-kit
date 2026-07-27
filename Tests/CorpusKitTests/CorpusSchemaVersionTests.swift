@@ -73,39 +73,37 @@ struct RemainingArtifactVersioningTests {
     private let decoder: JSONDecoder = { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }()
     private let stamp = Date(timeIntervalSince1970: 1_777_000_000)
 
-    /// Encodes the artifact and asserts the current schema version was stamped.
-    private func expectStamped<T: VersionedCorpusArtifact>(_ artifact: T) throws {
+    /// Encodes the artifact and returns whether it stamped the current schema version.
+    private func stampsCurrentVersion<T: VersionedCorpusArtifact>(_ artifact: T) throws -> Bool {
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
         let json = String(decoding: try enc.encode(artifact), as: UTF8.self)
-        #expect(json.contains("\"schemaVersion\":\(T.currentSchemaVersion)"), "\(T.self) did not stamp its schema version")
+        return json.contains("\"schemaVersion\":\(T.currentSchemaVersion)")
     }
 
-    /// Asserts the uniform skip-newer policy applies to the artifact type.
-    private func expectSkipsNewer<T: VersionedCorpusArtifact>(_ type: T.Type) throws {
+    /// Returns whether the uniform skip-newer policy applies to the artifact type
+    /// (a schema-99 artifact is skipped, reporting version 99 and the supported version).
+    private func skipsNewerArtifact<T: VersionedCorpusArtifact>(_ type: T.Type) throws -> Bool {
         let future = Data("{\"schemaVersion\":99}".utf8)
         let outcome = try CorpusSchema.decode(type, from: future, decoder: decoder, origin: "future.json")
-        guard case .skippedNewer(let v, let supported) = outcome else {
-            Issue.record("\(type) decoded a future artifact instead of skipping it"); return
-        }
-        #expect(v == 99)
-        #expect(supported == T.currentSchemaVersion)
+        guard case .skippedNewer(let v, let supported) = outcome else { return false }
+        return v == 99 && supported == T.currentSchemaVersion
     }
 
     @Test("all six remaining artifact types stamp the current schema version when written")
     func stampsCurrent() throws {
-        try expectStamped(CheckResultMetadata(
+        #expect(try stampsCurrentVersion(CheckResultMetadata(
             projectID: "p", timestamp: stamp, environment: .local, decisionOwner: "o",
             results: [], overrides: [], riskTier: .informational, ethicalFlags: [],
-            consistencyScore: nil))
-        try expectStamped(ComplexityReport(
+            consistencyScore: nil)))
+        #expect(try stampsCurrentVersion(ComplexityReport(
             projectID: "p", timestamp: stamp, modules: [],
             summary: ComplexitySummary(totalFunctions: 0, medianCognitive: 0, p90Cognitive: 0,
                                        maxCognitive: 0, complexityDistribution: [:], totalPatterns: 0,
-                                       patternBreakdown: [:], functionsAboveThreshold: 0)))
-        try expectStamped(DailySnapshot(
+                                       patternBreakdown: [:], functionsAboveThreshold: 0))))
+        #expect(try stampsCurrentVersion(DailySnapshot(
             date: stamp, scope: "corpus", gateRuns: 1, passedRuns: 1, failedRuns: 0,
-            overrides: 0, calibrations: 0, failuresByChecker: [:], overridesByRiskTier: [:]))
-        try expectStamped(InstitutionalPulse(
+            overrides: 0, calibrations: 0, failuresByChecker: [:], overridesByRiskTier: [:])))
+        #expect(try stampsCurrentVersion(InstitutionalPulse(
             windowStart: stamp, windowEnd: stamp, weekLabel: "2026-W28", projects: [],
             statistics: PulseStatistics(totalGateRuns: 0, passedRuns: 0, failedRuns: 0,
                                         totalOverrides: 0, totalCalibrations: 0,
@@ -115,26 +113,26 @@ struct RemainingArtifactVersioningTests {
                                         projectTrends: [:], anomalies: [], corpusSnapshots: [],
                                         projectSnapshots: [:]),
             violationClusters: [], proposedPolicyUpdates: [], calibrationSummaries: [],
-            narrative: nil, generatedAt: stamp))
-        try expectStamped(JudgmentCalibration(
+            narrative: nil, generatedAt: stamp)))
+        #expect(try stampsCurrentVersion(JudgmentCalibration(
             date: stamp, decisionOwner: "o", practitioner: "dev", riskTier: .operational,
             rootCauseAnalysis: RootCauseAnalysis(proximateCause: "c", chainOfInquiry: [],
                                                  rootCause: "expedient", failedStep: .design,
                                                  isRecurringPattern: false),
-            redTeamDissent: "d", proposedPolicyUpdate: nil, pulseContribution: "s"))
-        try expectStamped(SkipRecord(
+            redTeamDissent: "d", proposedPolicyUpdate: nil, pulseContribution: "s")))
+        #expect(try stampsCurrentVersion(SkipRecord(
             projectID: "p", timestamp: stamp, issueReference: "QG-1", author: "a",
-            environment: .ci))
+            environment: .ci)))
     }
 
     @Test("all six remaining artifact types skip newer-versioned artifacts")
     func skipsNewer() throws {
-        try expectSkipsNewer(CheckResultMetadata.self)
-        try expectSkipsNewer(ComplexityReport.self)
-        try expectSkipsNewer(DailySnapshot.self)
-        try expectSkipsNewer(InstitutionalPulse.self)
-        try expectSkipsNewer(JudgmentCalibration.self)
-        try expectSkipsNewer(SkipRecord.self)
+        #expect(try skipsNewerArtifact(CheckResultMetadata.self))
+        #expect(try skipsNewerArtifact(ComplexityReport.self))
+        #expect(try skipsNewerArtifact(DailySnapshot.self))
+        #expect(try skipsNewerArtifact(InstitutionalPulse.self))
+        #expect(try skipsNewerArtifact(JudgmentCalibration.self))
+        #expect(try skipsNewerArtifact(SkipRecord.self))
     }
 
     @Test("legacy check-result metadata (pre-complianceCount, pre-commitSHA) decodes as v1")

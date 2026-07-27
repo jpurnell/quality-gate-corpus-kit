@@ -202,6 +202,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     ///   - identityKind: Whose repository the gate ran against. Defaults to resident.
     ///   - ciIdentity: Provider-verified identity for CI runs. Defaults to nil (asserted run).
     ///   - host: Machine attribution for asserted runs. Defaults to nil.
+    ///   - gateMode: How the run's verdict was applied (standard or advisory). Defaults to standard.
+    ///   - baseline: The applied baseline ledger's per-run counts, when the run had one. Defaults to nil.
     public init(
         projectID: String,
         timestamp: Date,

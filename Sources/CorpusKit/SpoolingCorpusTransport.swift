@@ -76,10 +76,11 @@ public struct SpoolingCorpusTransport: CorpusTransport {
         do {
             try await upstream.write(metadata: metadata, calibrations: calibrations, to: corpus)
         } catch {
+            Self.logger.warning("Upstream metadata write failed (\(error.localizedDescription, privacy: .public)) — spooling")
             try spool(SpoolEntry(
                 payload: .metadata(metadata, calibrations: calibrations),
                 basePath: corpus.basePath, projectID: corpus.projectID,
-                timestamp: metadata.timestamp), afterUpstreamError: error)
+                timestamp: metadata.timestamp))
         }
     }
 
@@ -88,10 +89,11 @@ public struct SpoolingCorpusTransport: CorpusTransport {
         do {
             try await upstream.writeWorkEvent(event, to: corpus)
         } catch {
+            Self.logger.warning("Upstream work-event write failed (\(error.localizedDescription, privacy: .public)) — spooling")
             try spool(SpoolEntry(
                 payload: .workEvent(event),
                 basePath: corpus.basePath, projectID: corpus.projectID,
-                timestamp: event.date), afterUpstreamError: error)
+                timestamp: event.date))
         }
     }
 
@@ -100,10 +102,11 @@ public struct SpoolingCorpusTransport: CorpusTransport {
         do {
             try await upstream.writeSkip(record, to: corpus)
         } catch {
+            Self.logger.warning("Upstream skip write failed (\(error.localizedDescription, privacy: .public)) — spooling")
             try spool(SpoolEntry(
                 payload: .skip(record),
                 basePath: corpus.basePath, projectID: corpus.projectID,
-                timestamp: record.timestamp), afterUpstreamError: error)
+                timestamp: record.timestamp))
         }
     }
 
@@ -206,7 +209,9 @@ public struct SpoolingCorpusTransport: CorpusTransport {
     /// there. Returns the number of entries drained.
     @discardableResult
     public func drainSpool() async throws -> Int {
+        // SAFETY: spoolDirectory is a trusted, deployment-configured path set at init, never attacker-derived — no path-traversal exposure [CWE-22].
         guard FileManager.default.fileExists(atPath: spoolDirectory.path) else { return 0 }
+        // SAFETY: Enumerates only the trusted spoolDirectory; results are filtered to .json files this transport itself wrote [CWE-22].
         let files = try FileManager.default.contentsOfDirectory(atPath: spoolDirectory.path)
             .filter { $0.hasSuffix(".json") }
             .sorted()
@@ -246,8 +251,10 @@ public struct SpoolingCorpusTransport: CorpusTransport {
     /// Serializes a failed write to the spool directory. The filename leads
     /// with the artifact timestamp so a directory sort IS chronological
     /// order; a UUID suffix keeps same-second writes distinct.
-    private func spool(_ entry: SpoolEntry, afterUpstreamError error: any Error) throws {
-        Self.logger.warning("Upstream write failed (\(error.localizedDescription, privacy: .public)) — spooling")
+    ///
+    /// The caller (the per-operation catch block) is responsible for logging
+    /// the upstream error before delegating here.
+    private func spool(_ entry: SpoolEntry) throws {
         try FileManager.default.createDirectory(at: spoolDirectory, withIntermediateDirectories: true)
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate, .withFullTime]

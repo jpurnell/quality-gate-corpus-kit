@@ -118,6 +118,7 @@ public struct ProjectIdentity: Sendable, Equatable {
     /// Reads the `origin` remote URL for the repository containing `cwd`,
     /// or `nil` when git is unavailable or the directory is not a repo.
     public static func originRemoteURL(cwd: URL) -> String? {
+        // SAFETY: Fixed executable (/usr/bin/env) and fixed argv; the only dynamic value is cwd.path, passed as git's -C argument (not shell-interpreted), so no command injection [CWE-78].
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "-C", cwd.path, "remote", "get-url", "origin"]

@@ -1,2 +1,9 @@
 .build/
 .DS_Store
+
+# Claude Code local settings (personal preferences, not shared)
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Development guidelines — nested repo, tracked on its own project-state branch
+development-guidelines/

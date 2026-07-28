@@ -1,0 +1,19 @@
+exclude:
+  - disk-clean
+
+checkers:
+  - all
+  - logging
+
+consistency:
+  corpusPath: /Users/jpurnell/Dropbox/Computer/Development/Swift/Tools/org-judgement-corpus
+  projectID: quality-gate-corpus-kit
+  consistencyThreshold: 0.7
+  defaultRiskTier: 2
+
+ijs:
+  projectID: "quality-gate-corpus-kit"
+  corpusPath: "/Users/jpurnell/Dropbox/Computer/Development/Swift/Tools/org-judgement-corpus"
+  decisionOwner: "jpurnell"
+  defaultRiskTier: 2
+  remoteURL: "git@github.com:jpurnell/org-judgement-corpus.git"

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CorpusPath.resolvedURL(for:within:)` / `CorpusPath.contains(_:within:)` (plus
+  instance sugar `resolvedURL(forContainedPath:)` / `contains(_:)`) — the single
+  hardened corpus-base containment check, so every writer shares one
+  symlink-safe, component-aware implementation instead of a per-writer copy.
+  `TelemetryWriter` now delegates to it. (Downstream `DecisionWriter` /
+  `NarrativeWriter` in org-judgement-system migrate to this API in a follow-up.)
+
 ## [1.12.1]
 
 ### Fixed

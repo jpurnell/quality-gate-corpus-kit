@@ -699,22 +699,9 @@ public actor TelemetryWriter {
     /// via `resolvingSymlinksInPath()`, so the returned URL points at the real
     /// location even when the base is reached through a symlink.
     private func sanitizedURL(_ path: String, within basePath: String) throws -> URL {
-        let lexicalBase = URL(fileURLWithPath: basePath).standardized
-        let lexicalTarget = URL(fileURLWithPath: path).standardized
-
-        let baseComponents = lexicalBase.pathComponents
-        let targetComponents = lexicalTarget.pathComponents
-
-        guard targetComponents.count >= baseComponents.count,
-              Array(targetComponents.prefix(baseComponents.count)) == baseComponents else {
-            throw IJSError.telemetryWriteFailed(reason: "Path \(path) escapes corpus base \(basePath)")
-        }
-
-        var resolved = URL(fileURLWithPath: basePath).resolvingSymlinksInPath()
-        for component in targetComponents.dropFirst(baseComponents.count) {
-            resolved.appendPathComponent(component)
-        }
-        return resolved
+        // The one hardened containment check lives on CorpusPath so every writer
+        // shares it — see ``CorpusPath/resolvedURL(for:within:)``.
+        try CorpusPath.resolvedURL(for: path, within: basePath)
     }
 
     // MARK: - Private Helpers

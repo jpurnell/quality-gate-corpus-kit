@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-07-29
+
 ### Added
 - `CorpusPath.resolvedURL(for:within:)` / `CorpusPath.contains(_:within:)` (plus
   instance sugar `resolvedURL(forContainedPath:)` / `contains(_:)`) — the single

@@ -1,16 +1,7 @@
 import Foundation
 
-/// Where a module orientation card's prose came from.
-///
-/// The factual fields (`reliedOnBy`, `role`) never depend on this — they are
-/// always exact. Today only the deterministic `template` tier exists; the planned
-/// durability order (fresh LLM > preserved LLM > template) will add `.llm` /
-/// `.preservedLLM` cases when the per-module prose generator lands and references
-/// them.
-public enum ProseSource: String, Sendable, Codable, Equatable {
-    /// Deterministic fallback synthesized from the module's role and doc.
-    case template
-}
+// `ProseSource` (the prose provenance tier) now lives in `ProseSource.swift`,
+// shared with the pulse narrative — see ``ProseSource``.
 
 /// A per-module "orientation card": what a module does, why, and what relies on
 /// it — the substrate for the dashboard's module-orientation section and a future

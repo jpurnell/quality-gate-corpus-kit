@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-07-29
+
+### Added
+- `ProseSource` extended from `template`-only to the full narrative-provenance
+  vocabulary (`template`, `claude`, `onDeviceLLM`, `preservedLLM`) plus
+  `CaseIterable`, and moved to its own `ProseSource.swift` — one shared
+  provenance type for both module orientation cards and the pulse narrative
+  (retires the duplicate `NarrativeSource` enum in quality-gate-swift).
+- `InstitutionalPulse.narrativeSource: ProseSource?` records which engine
+  produced the narrative, so the dashboard can badge on-device vs Claude from
+  the pulse JSON (previously only in `NARRATIVE_*.md` frontmatter). Optional
+  with tolerant decode — no schema-version bump. `withNarrative(_:source:)`
+  sets it.
+
 ## [1.13.0] — 2026-07-29
 
 ### Added

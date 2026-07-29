@@ -32,6 +32,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
     public let calibrationSummaries: [String]
     /// LLM-generated or human-written narrative synthesis (nil until summarized).
     public let narrative: String?
+    /// Which engine produced ``narrative`` (nil for legacy pulses and when unsummarized).
+    public let narrativeSource: ProseSource?
     /// When this Pulse was generated.
     public let generatedAt: Date
     /// Projects sunset during (or as of) this window; excluded from active metrics.
@@ -51,7 +53,7 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         case schemaVersion
         case windowStart, windowEnd, weekLabel, label, projects
         case statistics, violationClusters, proposedPolicyUpdates
-        case calibrationSummaries, narrative, generatedAt
+        case calibrationSummaries, narrative, narrativeSource, generatedAt
         case sunsetProjects, proposalFirstSeen
         case projectTiers, projectTrajectories, groupSnapshots
         case currentSnapshot
@@ -75,7 +77,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         projectTiers: [String: ProjectTier]? = nil,
         projectTrajectories: [ProjectTrajectory]? = nil,
         groupSnapshots: [String: [DailySnapshot]]? = nil,
-        currentSnapshot: CurrentSnapshot? = nil
+        currentSnapshot: CurrentSnapshot? = nil,
+        narrativeSource: ProseSource? = nil
     ) {
         self.schemaVersion = Self.currentSchemaVersion
         self.windowStart = windowStart
@@ -88,6 +91,7 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         self.proposedPolicyUpdates = proposedPolicyUpdates
         self.calibrationSummaries = calibrationSummaries
         self.narrative = narrative
+        self.narrativeSource = narrativeSource
         self.generatedAt = generatedAt
         self.sunsetProjects = sunsetProjects
         self.proposalFirstSeen = proposalFirstSeen
@@ -97,8 +101,14 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         self.currentSnapshot = currentSnapshot
     }
 
-    /// Returns a copy of this pulse with the narrative field set.
-    public func withNarrative(_ text: String) -> InstitutionalPulse {
+    /// Returns a copy of this pulse with the narrative (and optionally its
+    /// producing engine) set.
+    ///
+    /// - Parameters:
+    ///   - text: The narrative synthesis.
+    ///   - source: Which engine produced `text`. Defaults to `nil`, leaving
+    ///     provenance unrecorded (source-compatible with older callers).
+    public func withNarrative(_ text: String, source: ProseSource? = nil) -> InstitutionalPulse {
         InstitutionalPulse(
             windowStart: windowStart,
             windowEnd: windowEnd,
@@ -116,7 +126,8 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
             projectTiers: projectTiers,
             projectTrajectories: projectTrajectories,
             groupSnapshots: groupSnapshots,
-            currentSnapshot: currentSnapshot
+            currentSnapshot: currentSnapshot,
+            narrativeSource: source
         )
     }
 
@@ -134,6 +145,7 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         proposedPolicyUpdates = try container.decode([String].self, forKey: .proposedPolicyUpdates)
         calibrationSummaries = try container.decode([String].self, forKey: .calibrationSummaries)
         narrative = try container.decodeIfPresent(String.self, forKey: .narrative)
+        narrativeSource = try container.decodeIfPresent(ProseSource.self, forKey: .narrativeSource)
         generatedAt = try container.decode(Date.self, forKey: .generatedAt)
         sunsetProjects = try container.decodeIfPresent([String].self, forKey: .sunsetProjects) ?? []
         proposalFirstSeen = try container.decodeIfPresent([String: String].self, forKey: .proposalFirstSeen)
@@ -157,6 +169,7 @@ public struct InstitutionalPulse: VersionedCorpusArtifact, Equatable {
         try container.encode(proposedPolicyUpdates, forKey: .proposedPolicyUpdates)
         try container.encode(calibrationSummaries, forKey: .calibrationSummaries)
         try container.encodeIfPresent(narrative, forKey: .narrative)
+        try container.encodeIfPresent(narrativeSource, forKey: .narrativeSource)
         try container.encode(generatedAt, forKey: .generatedAt)
         try container.encode(sunsetProjects, forKey: .sunsetProjects)
         try container.encodeIfPresent(proposalFirstSeen, forKey: .proposalFirstSeen)

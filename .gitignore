@@ -7,3 +7,5 @@ CLAUDE.local.md
 
 # Development guidelines — nested repo, tracked on its own project-state branch
 development-guidelines/
+/.claude/skills/
+/development-guidelines.pre-v2/

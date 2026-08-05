@@ -1,117 +1,83 @@
 # quality-gate-corpus-kit Master Plan
 
-> **ACTION REQUIRED:** Replace all `[PLACEHOLDER]` sections below with your
-> project's actual content. This file is the source of truth for project vision,
-> architecture, and goals. Do not start implementation until it is filled in.
+**Purpose:** The contract this package offers everything that reads or writes the corpus.
 
-**Purpose:** Source of truth for project vision, architecture, and goals.
-
----
-
-## Project Overview
-
-### Mission
-[1-2 sentences: what this project does and why it exists.]
-
-### Target Users
-- [Who uses this? Be specific about roles and contexts.]
-
-### Key Differentiators
-- [What makes this different from alternatives?]
+> **Provenance:** Written 2026-08-04 from README, `Package.swift`, and the source tree.
+> **This is a foundation library, not a product.**
 
 ---
 
-## Architecture
+## Mission
 
-### Technology Stack
-- **Language:** Swift 6.0+
-- **Build System:** Swift Package Manager
-- **Testing:** Swift Testing framework
-- **Concurrency:** Swift 6 strict concurrency throughout
-- [Add frameworks: SwiftUI, SwiftData, Vapor, etc.]
-- [Add dependencies: BusinessMath, etc.]
+The **one implementation** of the quality-gate corpus: the shared reader and writer for
+telemetry, snapshots, and derived judgment artifacts.
 
-### Module Structure
+"One implementation" is the entire point. A corpus with two writers acquires two schemas,
+and the telemetry series stops being comparable — which destroys the only thing longitudinal
+data is for.
 
-```
-Sources/[ProjectName]/
-├── [Describe your source layout here]
-└── ...
-```
+## Who depends on this
 
-### Key Types
-
-| Type | Purpose |
-|------|---------|
-| `[TypeName]` | [What it does] |
-
-### Data Flow
-
-```
-[Describe the primary data pipeline from input to output]
-```
+`quality-gate-swift` (writing telemetry, generating pulses), the corpus service, and the
+dashboard. Anything that touches corpus data should route through `CorpusKit` rather than
+reading the layout directly.
 
 ---
 
-## Core Architectural Decisions
+## The contract
 
-1. [Decision 1 — what you chose and why.]
-2. [Decision 2]
-3. [Add more as needed]
+| Protocol | Role |
+|---|---|
+| `CorpusTransport` | storage seam — local filesystem, remote service, or test double |
+| `VersionedCorpusArtifact` | every artifact declares its schema version |
 
----
+`VersionedCorpusArtifact` is the load-bearing one. Telemetry accumulates for years; a
+reader will meet artifacts written by versions of the tool that no longer exist. Versioning
+each artifact is what makes that survivable.
+
+**Domain types** cover baselines and drift (`BaselineSnapshot`, `AnomalyGate`,
+`AnomalyDirection`, `AnomalySeverity`), judgment (`Actionability`, `AuthorityLevel`),
+complexity (`ComplexityReport`, `ComplexitySnapshot`), and run identity (`CIIdentity`,
+`CheckResultMetadata`).
+
+Depends on **`quality-gate-types`** for the shared vocabulary and **`Yams`** for YAML.
+
+## Boundaries
+
+**Inside:** corpus schema, serialization, versioning, transport abstraction, the types
+describing a run.
+
+**Outside:** running checkers, deciding verdicts, rendering dashboards. This package knows
+how a result is *stored*, never how it is *produced* or *judged*.
+
+## Stability
+
+**Schema changes are the risk, not source compatibility.** A Swift API break is a compile
+error someone fixes in an afternoon. A schema change that silently reinterprets existing
+artifacts corrupts a longitudinal series retroactively, and nothing errors.
+
+Rules that follow:
+
+- Every artifact carries its schema version. No exceptions, including new types.
+- Readers tolerate older versions; writers never rewrite history.
+- A field's meaning is fixed once written. Need different semantics? New field.
+
+**[NEEDS INPUT]** — the current schema version, and the oldest version readers still
+support. Both belong here.
 
 ## Current Status
 
-### What's Working
-- [ ] [List completed milestones]
+- [x] 47 source files, **54 test files** — the best-covered package in this tier, which is
+      appropriate for something whose failures are silent and retroactive
 
-### What's Next
-- [ ] [List upcoming work items]
-
----
+**Priorities: [NEEDS INPUT]**
 
 ## Quality Standards
 
-### Code Quality
-- All code follows `coding_rules.md`
-- TDD: failing tests before implementation
-- Documentation for all public APIs
-- No warnings in build output
-- Quality gate: 0 errors, 0 warnings before every commit
-
-### Documentation Quality
-- DocC comments for all public functions
-- Usage examples in documentation
-- Articles for complex topics
+`coding_rules.md`, Swift 6 strict concurrency, zero warnings, DocC on every public type.
+**Round-trip tests against fixed fixtures**, including artifacts from older schema versions
+— that is the only way a compatibility guarantee is more than an intention.
 
 ---
 
-## Collaboration Principles
-
-### AI as Sparring Partner, Not Oracle
-
-AI proposes; the human interrogates. High AI confidence triggers harder questions, not faster acceptance.
-
-- **Interrogate confident outputs.** When the AI states something with certainty, ask for the counterargument before accepting.
-- **Demand counterarguments.** Before locking in an approach, require an explicit case for the strongest alternative.
-- **Sit with discomfort.** Resist the pull to take the first plausible answer.
-
-This principle is operationalized in the **Adversarial Review** step of `design_proposal.md`.
-
----
-
-## Roadmap
-
-### Phase 1: [Name]
-- [ ] [Milestone]
-
-### Phase 2: [Name]
-- [ ] [Milestone]
-
-### Future
-- [Ideas not yet committed to]
-
----
-
-**Last Updated:** [DATE] ([brief note on what changed])
+**Last Updated:** 2026-08-04

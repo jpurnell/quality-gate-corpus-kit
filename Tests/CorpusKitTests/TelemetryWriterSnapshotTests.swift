@@ -8,11 +8,7 @@ struct TelemetryWriterSnapshotTests {
     private let writer = TelemetryWriter()
 
     private func makeDate(_ string: String) -> Date {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.date(from: string)!
+        TestDates.day(string)
     }
 
     private func makeTempCorpusPath() -> CorpusPath {
@@ -44,6 +40,7 @@ struct TelemetryWriterSnapshotTests {
 
         let expectedPath = corpus.snapshotPath(scope: snapshot.scope, date: snapshot.date)
         let resolved = URL(fileURLWithPath: expectedPath).standardized.resolvingSymlinksInPath()
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: resolved.path))
     }
 

@@ -15,11 +15,6 @@ struct TelemetryWriterLabelTests {
     }
 
     private func makePulse(weekLabel: String = "2026-W22", label: String? = nil) -> InstitutionalPulse {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-
         let stats = PulseStatistics(
             totalGateRuns: 10,
             passedRuns: 8,
@@ -39,8 +34,8 @@ struct TelemetryWriterLabelTests {
         )
 
         return InstitutionalPulse(
-            windowStart: fmt.date(from: "2026-05-25")!,
-            windowEnd: fmt.date(from: "2026-06-01")!,
+            windowStart: TestDates.day("2026-05-25"),
+            windowEnd: TestDates.day("2026-06-01"),
             weekLabel: weekLabel,
             label: label,
             projects: ["test-project"],
@@ -49,7 +44,7 @@ struct TelemetryWriterLabelTests {
             proposedPolicyUpdates: [],
             calibrationSummaries: [],
             narrative: nil,
-            generatedAt: fmt.date(from: "2026-06-01")!
+            generatedAt: TestDates.day("2026-06-01")
         )
     }
 
@@ -63,11 +58,13 @@ struct TelemetryWriterLabelTests {
 
         let expectedPath = corpus.pulsePath(weekLabel: "2026-06-05")
         let resolved = URL(fileURLWithPath: expectedPath).standardized.resolvingSymlinksInPath()
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: resolved.path))
 
         // Verify the week-label path does NOT exist (label takes priority)
         let weekPath = corpus.pulsePath(weekLabel: "2026-W22")
         let weekResolved = URL(fileURLWithPath: weekPath).standardized.resolvingSymlinksInPath()
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(!FileManager.default.fileExists(atPath: weekResolved.path))
     }
 
@@ -81,6 +78,7 @@ struct TelemetryWriterLabelTests {
 
         let expectedPath = corpus.pulsePath(weekLabel: "2026-W22")
         let resolved = URL(fileURLWithPath: expectedPath).standardized.resolvingSymlinksInPath()
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: resolved.path))
     }
 

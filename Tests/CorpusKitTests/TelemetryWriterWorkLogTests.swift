@@ -15,11 +15,7 @@ struct TelemetryWriterWorkLogTests {
     }
 
     private func makeDate(_ string: String) -> Date {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.date(from: string)!
+        TestDates.timestamp(string)
     }
 
     @Test("readWorkLog on missing file returns empty array")

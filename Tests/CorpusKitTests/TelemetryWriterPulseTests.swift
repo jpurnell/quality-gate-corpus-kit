@@ -15,11 +15,6 @@ struct TelemetryWriterPulseTests {
     }
 
     private func makePulse(weekLabel: String = "2026-W18") -> InstitutionalPulse {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-
         let stats = PulseStatistics(
             totalGateRuns: 10,
             passedRuns: 8,
@@ -39,8 +34,8 @@ struct TelemetryWriterPulseTests {
         )
 
         return InstitutionalPulse(
-            windowStart: fmt.date(from: "2026-04-27")!,
-            windowEnd: fmt.date(from: "2026-05-04")!,
+            windowStart: TestDates.day("2026-04-27"),
+            windowEnd: TestDates.day("2026-05-04"),
             weekLabel: weekLabel,
             projects: ["test-project"],
             statistics: stats,
@@ -48,7 +43,7 @@ struct TelemetryWriterPulseTests {
             proposedPolicyUpdates: [],
             calibrationSummaries: [],
             narrative: nil,
-            generatedAt: fmt.date(from: "2026-05-04")!
+            generatedAt: TestDates.day("2026-05-04")
         )
     }
 
@@ -60,6 +55,7 @@ struct TelemetryWriterPulseTests {
 
         let expectedPath = corpus.pulsePath(weekLabel: pulse.weekLabel)
         let resolved = URL(fileURLWithPath: expectedPath).standardized.resolvingSymlinksInPath()
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: resolved.path))
     }
 
@@ -98,14 +94,9 @@ struct TelemetryWriterPulseTests {
         let corpus = makeTempCorpusPath()
         let first = makePulse(weekLabel: "2026-W18")
 
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-
         let updated = InstitutionalPulse(
-            windowStart: fmt.date(from: "2026-04-27")!,
-            windowEnd: fmt.date(from: "2026-05-04")!,
+            windowStart: TestDates.day("2026-04-27"),
+            windowEnd: TestDates.day("2026-05-04"),
             weekLabel: "2026-W18",
             projects: ["test-project", "second-project"],
             statistics: first.statistics,
@@ -113,7 +104,7 @@ struct TelemetryWriterPulseTests {
             proposedPolicyUpdates: ["add concurrency rule"],
             calibrationSummaries: [],
             narrative: "Updated pulse",
-            generatedAt: fmt.date(from: "2026-05-04")!
+            generatedAt: TestDates.day("2026-05-04")
         )
 
         try await writer.writePulse(first, to: corpus)

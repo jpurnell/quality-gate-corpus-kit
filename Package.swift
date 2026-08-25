@@ -19,7 +19,10 @@ let package = Package(
             dependencies: [
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
                 .product(name: "Yams", package: "Yams"),
-            ]
+            ],
+            // The catalogue is built by the docc plugin, not compiled into the
+            // target; excluding it keeps SwiftPM from warning it is unhandled.
+            exclude: ["CorpusKit.docc"]
         ),
         .testTarget(name: "CorpusKitTests", dependencies: ["CorpusKit"]),
     ]

@@ -67,10 +67,25 @@ support. Both belong here.
 
 ## Current Status
 
+### What's Working
+
+- [x] CorpusKit — schema types, deterministic paths, telemetry I/O, git sync
+
 - [x] 47 source files, **54 test files** — the best-covered package in this tier, which is
       appropriate for something whose failures are silent and retroactive
+- [x] **One audited subprocess kernel.** Every spawn routes through `ProcessRunner`,
+      declared to the gate as `boundedIO.kernelPath`. This closed a real deadlock:
+      `ProjectIdentity` attached a stderr pipe it never drained, so a `git` call with
+      more than ~64 KB of stderr would hang the caller rather than fail it.
+- [x] Gate clean at 0 errors / 0 warnings against quality-gate 3.1.0, with the
+      institutional consistency score back to 1.00 (it had fallen to 0.00).
 
-**Priorities: [NEEDS INPUT]**
+**Priorities**
+
+1. Answer the two `[NEEDS INPUT]` items under *Stability* — current schema version and
+   the oldest version readers still support. Everything else here is downstream of them.
+2. Keep the subprocess kernel the only spawn site; the gate now enforces this, so the
+   work is to resist adding a second one rather than to detect it.
 
 ## Quality Standards
 
@@ -80,4 +95,6 @@ support. Both belong here.
 
 ---
 
-**Last Updated:** 2026-08-04
+**Last Updated:** 2026-08-25 — reconciled against quality-gate 3.1.0: recorded the
+`ProcessRunner` kernel and the deadlock it closed, added the `CorpusKit` target entry
+the status checker had been asking for, and replaced the Priorities placeholder.

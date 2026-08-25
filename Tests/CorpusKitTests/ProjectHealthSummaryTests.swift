@@ -77,12 +77,14 @@ struct ProjectHealthSummaryTests {
 
     @Test("Backward-compat decode: old projectStatuses format converts to rates")
     func backwardCompatDecode() throws {
-        let json = """
+        let json = Data("""
         {"projectStatuses": {"a": true, "b": false, "c": true}}
-        """.data(using: .utf8)!
+        """.utf8)
         let decoded = try JSONDecoder().decode(ProjectHealthSummary.self, from: json)
-        #expect(abs(decoded.projectPassRates["a"]! - 100.0) < 0.001)
-        #expect(abs(decoded.projectPassRates["b"]! - 0.0) < 0.001)
+        let rateForA = try #require(decoded.projectPassRates["a"])
+        let rateForB = try #require(decoded.projectPassRates["b"])
+        #expect(abs(rateForA - 100.0) < 0.001)
+        #expect(abs(rateForB - 0.0) < 0.001)
         #expect(decoded.trajectories.isEmpty)
     }
 

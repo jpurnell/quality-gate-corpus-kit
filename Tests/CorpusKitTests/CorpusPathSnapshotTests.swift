@@ -8,11 +8,7 @@ struct CorpusPathSnapshotTests {
     private let corpusPath = CorpusPath(basePath: "/corpus", projectID: "my-app")
 
     private func makeDate(_ string: String) -> Date {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.date(from: string)!
+        TestDates.day(string)
     }
 
     @Test("snapshotDirectory produces correct path for project scope")

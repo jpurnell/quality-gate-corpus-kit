@@ -16,3 +16,22 @@ with its reconciliation decision.
 | 8 | `TelemetryWriter`: org had `readLatestMetadata`, `discoverProjects(in:)` | Adopted verbatim |
 | 9 | `EthicalFlag`/`FiveStepStage`: org's were `CaseIterable` | Conformances adopted. `TrendAnalysis.compute(metric:values:)` NOT adopted — it depends on BusinessMath; it stays in org-judgement-system as an extension on CorpusKit's `TrendAnalysis` |
 | 10 | `CorpusManagerTests` (the only coverage of `CorpusManager`) flipped fail→pass on identical code — parallel with the whole fleet, unchecked git exit codes, global git identity, unborn-branch remote | Moved here hardened: `.serialized`, checked setup commands, repo-local identity, seeded remotes. Verified stable across repeated runs |
+
+## #10 — Subprocess spawning unified behind ProcessRunner (2026-08-25)
+
+Both prior implementations spawned `git` ad hoc, and each had drifted into a
+different unsafe shape: `CorpusManager` read its pipes before waiting (correct
+order, no timeout), `ProjectIdentity` attached a stderr pipe it never drained
+(deadlock on chatty stderr), and the test helpers waited before reading
+(deadlock on any output at all). The gate's `bounded-io` checker made the
+divergence visible by requiring one audited kernel.
+
+Resolution: all sixteen call sites route through `ProcessRunner`. The kernel is
+declared to the gate via `boundedIO.kernelPath`, so the containment is enforced
+rather than merely documented — a new ad-hoc `Process()` anywhere else in the
+package now fails the gate.
+
+Worth recording: bounding the wait was not sufficient. Killing a child does not
+close pipe write ends its own children inherited, so reading to EOF could still
+outlive the bounded process. The drain carries its own deadline and the result
+reports `outputTruncated` when it fires.

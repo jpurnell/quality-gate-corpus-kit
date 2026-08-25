@@ -8,12 +8,9 @@ struct CorpusPathTests {
     static let basePath = "/tmp/test-corpus"
     static let projectID = "quality-gate-swift"
 
-    static let referenceDate: Date = {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        let comps = DateComponents(year: 2026, month: 4, day: 28, hour: 14, minute: 30, second: 22)
-        return cal.date(from: comps)!
-    }()
+    static let referenceDate = TestDates.utc(
+        year: 2026, month: 4, day: 28, hour: 14, minute: 30, second: 22
+    )
 
     @Test("projectDirectory returns basePath/telemetry/projectID/")
     func projectDirectory() {
@@ -65,9 +62,7 @@ struct CorpusPathTests {
 
     @Test("Midnight timestamp produces 000000 filename component")
     func midnightTimestamp() {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        let midnight = cal.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 0, minute: 0, second: 0))!
+        let midnight = TestDates.utc(year: 2026, month: 1, day: 1)
         let cp = CorpusPath(basePath: "/corpus", projectID: "test")
         let path = cp.metadataPath(for: midnight)
         #expect(path.contains("000000_metadata.json"))

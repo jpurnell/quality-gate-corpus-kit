@@ -8,11 +8,9 @@ struct TelemetryWriterTests {
 
     // MARK: - Fixtures
 
-    static let referenceDate: Date = {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        return cal.date(from: DateComponents(year: 2026, month: 4, day: 28, hour: 14, minute: 30, second: 22))!
-    }()
+    static let referenceDate = TestDates.utc(
+        year: 2026, month: 4, day: 28, hour: 14, minute: 30, second: 22
+    )
 
     static let sampleMetadata = CheckResultMetadata(
         projectID: "test-project",
@@ -60,6 +58,7 @@ struct TelemetryWriterTests {
     }
 
     static func cleanup(_ corpusPath: CorpusPath) {
+        // SAFETY: Removes only the temp tree this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         try? FileManager.default.removeItem(atPath: corpusPath.basePath)
     }
 
@@ -74,6 +73,7 @@ struct TelemetryWriterTests {
         try await writer.write(metadata: Self.sampleMetadata, calibrations: [], to: corpus)
 
         let expectedPath = corpus.metadataPath(for: Self.referenceDate)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: expectedPath))
     }
 
@@ -102,7 +102,9 @@ struct TelemetryWriterTests {
 
         let path0 = corpus.calibrationPath(for: Self.referenceDate, index: 0)
         let path1 = corpus.calibrationPath(for: Self.referenceDate, index: 1)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: path0))
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: path1))
     }
 
@@ -115,6 +117,7 @@ struct TelemetryWriterTests {
         try await writer.write(metadata: Self.sampleMetadata, calibrations: [], to: corpus)
 
         let path0 = corpus.calibrationPath(for: Self.referenceDate, index: 0)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: path0) == false)
     }
 
@@ -125,10 +128,12 @@ struct TelemetryWriterTests {
         let writer = TelemetryWriter()
 
         let dailyDir = corpus.dailyDirectory(for: Self.referenceDate)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: dailyDir) == false)
 
         try await writer.write(metadata: Self.sampleMetadata, calibrations: [], to: corpus)
 
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: dailyDir))
     }
 

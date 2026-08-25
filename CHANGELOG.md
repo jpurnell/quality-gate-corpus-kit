@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-08-25
+
+### Added
+- `ProcessRunner` and `ProcessResult` — the package's single audited subprocess
+  kernel. Every spawn now routes through it, bounded by a timeout with
+  `SIGTERM` → `SIGKILL` escalation, with both output streams drained
+  concurrently. `ProcessResult.outputTruncated` reports a capture cut short
+  because a grandchild still held an inherited pipe write end open, rather than
+  presenting a partial capture as whole.
+- A `CorpusKit.docc` catalogue, so `doc-lint` has a target to examine instead of
+  passing vacuously on a package with none.
+
+### Fixed
+- **Latent hang in `ProjectIdentity.originRemoteURL`.** It attached a `Pipe` to
+  the child's stderr and never read it, so a `git` invocation that wrote more
+  than the ~64 KB pipe buffer to stderr would block on write while the caller
+  blocked in `waitUntilExit()` — a deadlock, reachable in normal operation.
+- **Unbounded git waits in `CorpusManager`.** `pull`, `push`, and `clone` had no
+  timeout, so an auth prompt or a stalled network pinned the actor
+  indefinitely. Network subcommands now carry a 300s bound and local ones 60s.
+- `CorpusManagerTests.runShellOutput` waited for exit *before* reading the pipe,
+  the same deadlock in test setup.
+
+### Changed
+- Test suites build dates through a shared `TestDates` helper instead of 25
+  force unwraps across 12 files, removing both the crash risk and a duplicated
+  formatter configuration that could have drifted per file.
+- `.quality-gate.yml` declares `boundedIO.kernelPath`, and drops the `exclude:`
+  and `checkers:` blocks. Neither key is read by the gate, so neither had ever
+  taken effect; they were removed rather than renamed, because the literal
+  translation (`enabledCheckers: [all, logging]`) is an allow-list and would
+  have silently disabled every checker but two.
+
 ## [1.15.0] — 2026-08-25
 
 ### Added

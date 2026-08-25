@@ -35,7 +35,9 @@ struct TelemetryWriterSanitizationTests {
         // canonicalized asymmetrically.
         let root = "/tmp/corpuskit-symlink-\(UUID().uuidString)"
         let basePath = root + "/corpus"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: basePath, withIntermediateDirectories: true)
+        // SAFETY: Removes only the temp tree this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         defer { try? FileManager.default.removeItem(atPath: root) }
 
         let corpus = CorpusPath(basePath: basePath, projectID: "Pare")
@@ -44,6 +46,7 @@ struct TelemetryWriterSanitizationTests {
         try await writer.write(metadata: Self.makeMetadata(projectID: "Pare"), calibrations: [], to: corpus)
 
         let expected = corpus.metadataPath(for: Self.referenceDate)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: expected))
     }
 

@@ -5,13 +5,7 @@ import Foundation
 @Suite("StatisticalAnomaly")
 struct StatisticalAnomalyTests {
 
-    private let testDate: Date = {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.date(from: "2026-04-25")!
-    }()
+    private let testDate = TestDates.day("2026-04-25")
 
     private func makeAnomaly(
         direction: AnomalyDirection = .negative,

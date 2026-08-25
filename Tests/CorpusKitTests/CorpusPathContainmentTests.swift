@@ -64,7 +64,9 @@ struct CorpusPathContainmentTests {
         // not-yet-created target must not be canonicalized asymmetrically.
         let root = "/tmp/corpuskit-contain-\(UUID().uuidString)"
         let basePath = root + "/corpus"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: basePath, withIntermediateDirectories: true)
+        // SAFETY: Removes only the temp tree this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         defer { try? FileManager.default.removeItem(atPath: root) }
 
         let target = basePath + "/telemetry/p/2026-07-29/120000_metadata.json"

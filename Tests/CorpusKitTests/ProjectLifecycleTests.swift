@@ -94,6 +94,7 @@ struct ProjectLifecycleTests {
     @Test("Loads manifest from YAML file")
     func loadFromYAML() throws {
         let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         let manifestPath = "\(tmp)/manifest.yml"
         let yaml = """
@@ -125,6 +126,7 @@ struct ProjectLifecycleTests {
     @Test("Returns empty manifest when projects section is missing")
     func loadFromYAMLWithoutProjects() throws {
         let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         let manifestPath = "\(tmp)/manifest.yml"
         let yaml = """
@@ -139,6 +141,7 @@ struct ProjectLifecycleTests {
     @Test("Throws on non-dictionary YAML")
     func loadFromNonDictionaryYAML() throws {
         let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         let manifestPath = "\(tmp)/manifest.yml"
         // A plain YAML list is valid YAML but not a dictionary, triggering the error path
@@ -152,6 +155,7 @@ struct ProjectLifecycleTests {
     @Test("Skips entries with invalid lifecycle values")
     func loadFromYAMLWithInvalidLifecycle() throws {
         let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         let manifestPath = "\(tmp)/manifest.yml"
         let yaml = """

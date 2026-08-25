@@ -21,6 +21,7 @@ struct CorpusManagerTests {
         let base = FileManager.default.temporaryDirectory
             .appendingPathComponent("corpus-test-\(UUID().uuidString)")
         let remotePath = base.appendingPathComponent("remote.git").path
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(
             atPath: remotePath,
             withIntermediateDirectories: true
@@ -46,6 +47,7 @@ struct CorpusManagerTests {
             .appendingPathComponent("corpus-test-\(UUID().uuidString)")
             .appendingPathComponent("local")
             .path
+        // SAFETY: Creates a directory under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so the path cannot escape the temp root [CWE-22].
         try FileManager.default.createDirectory(
             atPath: path, withIntermediateDirectories: true
         )
@@ -98,32 +100,27 @@ struct CorpusManagerTests {
         }
     }
 
+    /// How long a git command in test setup may take before it counts as wedged.
+    private static let setupTimeout: TimeInterval = 120
+
     /// Runs a shell command and returns its exit status.
     private func runShell(_ args: [String], in dir: String) throws -> Int32 {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: dir)
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        return process.terminationStatus
+        try ProcessRunner.run(
+            "/usr/bin/env",
+            arguments: args,
+            workingDirectory: dir,
+            timeout: Self.setupTimeout
+        ).terminationStatus
     }
 
     /// Runs a shell command and returns trimmed stdout.
     private func runShellOutput(_ args: String..., in dir: String) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: dir)
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        try ProcessRunner.run(
+            "/usr/bin/env",
+            arguments: args,
+            workingDirectory: dir,
+            timeout: Self.setupTimeout
+        ).standardOutputText
     }
 
     // MARK: - Prepare Tests
@@ -133,12 +130,14 @@ struct CorpusManagerTests {
         let remotePath = try makeBareRemote()
         let localPath = try makeLocalDir()
         // Remove the empty dir so clone can create it
+        // SAFETY: Removes only the temp tree this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         try FileManager.default.removeItem(atPath: localPath)
 
         let manager = CorpusManager(localPath: localPath, remoteURL: remotePath)
         try await manager.prepare()
 
         let gitDir = (localPath as NSString).appendingPathComponent(".git")
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: gitDir))
     }
 
@@ -151,6 +150,7 @@ struct CorpusManagerTests {
         try await manager.prepare()
 
         let gitDir = (localPath as NSString).appendingPathComponent(".git")
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: gitDir))
     }
 
@@ -164,6 +164,7 @@ struct CorpusManagerTests {
         try await manager.prepare()
 
         let gitDir = (localPath as NSString).appendingPathComponent(".git")
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         #expect(FileManager.default.fileExists(atPath: gitDir))
     }
 
@@ -196,6 +197,7 @@ struct CorpusManagerTests {
         #expect(hash.isEmpty == false)
 
         let verifyClone = try cloneRemote(remotePath)
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         let pushed = FileManager.default.fileExists(
             atPath: (verifyClone as NSString).appendingPathComponent("telemetry.json")
         )
@@ -276,6 +278,7 @@ struct CorpusManagerTests {
         }
 
         // Both files should be in the final repo
+        // SAFETY: Read-only existence probe; the path was built by this test under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input, so there is no traversal to sanitize [CWE-22].
         let both = FileManager.default.fileExists(
             atPath: (localPath as NSString).appendingPathComponent("from_other.json")
         )

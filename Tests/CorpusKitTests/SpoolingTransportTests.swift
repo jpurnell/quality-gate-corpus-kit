@@ -101,6 +101,7 @@ struct SpoolingTransportTests {
 
         let recorded = await upstream.metadataWrites
         #expect(recorded.isEmpty)
+        // SAFETY: Read-only listing of a spool directory this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         let spooled = try FileManager.default.contentsOfDirectory(atPath: spoolDir.path)
         #expect(spooled.count == 1)
     }
@@ -124,6 +125,7 @@ struct SpoolingTransportTests {
 
         let recorded = await upstream.metadataWrites
         #expect(recorded.map(\.timestamp) == [base, base.addingTimeInterval(60), base.addingTimeInterval(120)])
+        // SAFETY: Read-only listing of a spool directory this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         let remaining = try FileManager.default.contentsOfDirectory(atPath: spoolDir.path)
         #expect(remaining.isEmpty)
     }
@@ -164,6 +166,7 @@ struct SpoolingTransportTests {
         let events = await upstream.workEventWrites
         #expect(metadata.count == 1)
         #expect(events.count == 1)
+        // SAFETY: Read-only listing of a spool directory this test created under the test's own temp directory (FileManager.temporaryDirectory + a UUID), never external input [CWE-22].
         let spooled = try FileManager.default.contentsOfDirectory(atPath: spoolDir.path)
         #expect(spooled.isEmpty)
     }

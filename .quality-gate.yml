@@ -1,9 +1,14 @@
-exclude:
-  - disk-clean
+# `exclude:` and `checkers:` used to sit here. Neither is a key this gate
+# reads, so neither has ever taken effect; they were dropped rather than
+# renamed. `enabledCheckers` is an allow-list, so the literal translation
+# (`enabledCheckers: [all, logging]`) would have silently switched off every
+# checker but two — the opposite of what the block was trying to say.
 
-checkers:
-  - all
-  - logging
+# bounded-io requires every unbounded subprocess primitive to live in one
+# audited file. Ours is ProcessRunner; without this the gate looks for its
+# own default path and flags our kernel as if it were a call site.
+boundedIO:
+  kernelPath: Sources/CorpusKit/ProcessRunner.swift
 
 consistency:
   corpusPath: /Users/jpurnell/Dropbox/Computer/Development/Swift/Tools/org-judgement-corpus

@@ -115,26 +115,27 @@ public struct ProjectIdentity: Sendable, Equatable {
                 directoryName: cwd.lastPathComponent)
     }
 
+    /// Bound for the local `git remote get-url` probe. Purely local, so a run
+    /// that takes longer than this is wedged rather than slow.
+    private static let gitTimeoutSeconds: TimeInterval = 30
+
     /// Reads the `origin` remote URL for the repository containing `cwd`,
     /// or `nil` when git is unavailable or the directory is not a repo.
     public static func originRemoteURL(cwd: URL) -> String? {
-        // SAFETY: Fixed executable (/usr/bin/env) and fixed argv; the only dynamic value is cwd.path, passed as git's -C argument (not shell-interpreted), so no command injection [CWE-78].
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git", "-C", cwd.path, "remote", "get-url", "origin"]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
+        let result: ProcessResult
         do {
-            try process.run()
+            // SAFETY: Fixed executable (/usr/bin/env) and fixed argv; the only dynamic value is cwd.path, passed as git's -C argument (not shell-interpreted), so no command injection [CWE-78].
+            result = try ProcessRunner.run(
+                "/usr/bin/env",
+                arguments: ["git", "-C", cwd.path, "remote", "get-url", "origin"],
+                timeout: gitTimeoutSeconds
+            )
         } catch {
             logger.notice("identity.git-unavailable: \(error.localizedDescription, privacy: .public)")
             return nil
         }
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        let url = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard result.succeeded else { return nil }
+        let url = result.standardOutputText
         return url.isEmpty ? nil : url
     }
 }

@@ -112,67 +112,93 @@ public actor CorpusManager {
         try runGitInArray(directory: directory, args: args)
     }
 
+    /// Bound for git work that stays on the local disk.
+    private static let localGitTimeout: TimeInterval = 60
+
+    /// Bound for git work that talks to the remote.
+    ///
+    /// Generous, because a large clone over a slow link is slow rather than
+    /// broken — but finite, because an unauthenticated `push` will otherwise
+    /// sit on a credential prompt that nothing on this actor will ever answer.
+    private static let networkGitTimeout: TimeInterval = 300
+
+    /// Whether `args` names a git subcommand that contacts the remote.
+    private static func isNetworkOperation(_ args: [String]) -> Bool {
+        guard let subcommand = args.first(where: { !$0.hasPrefix("-") }) else { return false }
+        return ["clone", "fetch", "pull", "push", "remote", "ls-remote"].contains(subcommand)
+    }
+
+    /// The bound appropriate to `args`.
+    private static func timeout(for args: [String]) -> TimeInterval {
+        isNetworkOperation(args) ? networkGitTimeout : localGitTimeout
+    }
+
+    /// Runs git, discarding output, and throws on any non-zero exit.
     private func runGitInArray(directory: String, args: [String]) throws {
-        // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals or actor-owned properties
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: directory)
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw IJSError.corpusSyncFailed(
-                reason: "git \(args.joined(separator: " ")) failed with exit code \(process.terminationStatus)"
-            )
-        }
+        // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals or actor-owned properties, passed as argv and never shell-interpreted [CWE-78].
+        let result = try ProcessRunner.run(
+            "/usr/bin/git",
+            arguments: args,
+            workingDirectory: directory,
+            timeout: Self.timeout(for: args)
+        )
+        try Self.requireSuccess(result, args: args)
     }
 
+    /// Runs git and returns trimmed stdout, throwing on any non-zero exit.
     private func runGitOutput(_ args: String...) throws -> String {
-        // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: localPath)
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw IJSError.corpusSyncFailed(
-                reason: "git \(args.joined(separator: " ")) failed with exit code \(process.terminationStatus)"
-            )
-        }
-        return (String(data: data, encoding: .utf8) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals, passed as argv and never shell-interpreted [CWE-78].
+        let result = try ProcessRunner.run(
+            "/usr/bin/git",
+            arguments: args,
+            workingDirectory: localPath,
+            timeout: Self.timeout(for: args)
+        )
+        try Self.requireSuccess(result, args: args)
+        return result.standardOutputText
     }
 
+    /// Runs git and returns a description of the failure, or `nil` on success.
+    ///
+    /// Used for the steps a sync is allowed to lose — a `pull` with no
+    /// upstream, a `push` with no network — where the local corpus stays
+    /// usable and the caller only needs to know what went wrong.
     private func tryGit(_ args: String...) -> String? {
-        // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: localPath)
-        process.standardOutput = FileHandle.nullDevice
-        let errPipe = Pipe()
-        process.standardError = errPipe
         do {
-            try process.run()
+            // SAFETY: Hardcoded executable path /usr/bin/git; arguments are string literals, passed as argv and never shell-interpreted [CWE-78].
+            let result = try ProcessRunner.run(
+                "/usr/bin/git",
+                arguments: args,
+                workingDirectory: localPath,
+                timeout: Self.timeout(for: args)
+            )
+            if result.timedOut {
+                return "git \(args.joined(separator: " ")) timed out after \(Self.timeout(for: args))s"
+            }
+            guard result.terminationStatus == 0 else {
+                let reported = result.standardErrorText
+                return reported.isEmpty ? "unknown error" : reported
+            }
+            return nil
         } catch {
             logger.error("git process launch failed: \(error.localizedDescription, privacy: .public)")
             return error.localizedDescription
         }
-        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            let errStr = (String(data: errData, encoding: .utf8) ?? "unknown error")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return errStr
+    }
+
+    /// Throws ``IJSError/corpusSyncFailed(reason:)`` unless `result` succeeded.
+    private static func requireSuccess(_ result: ProcessResult, args: [String]) throws {
+        let invocation = "git \(args.joined(separator: " "))"
+        if result.timedOut {
+            throw IJSError.corpusSyncFailed(
+                reason: "\(invocation) timed out after \(timeout(for: args))s"
+            )
         }
-        return nil
+        guard result.terminationStatus == 0 else {
+            throw IJSError.corpusSyncFailed(
+                reason: "\(invocation) failed with exit code \(result.terminationStatus)"
+            )
+        }
     }
 
     private static func todayString() -> String {

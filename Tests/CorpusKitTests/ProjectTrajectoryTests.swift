@@ -83,7 +83,7 @@ struct ProjectTrajectoryTests {
     // MARK: - Initialization
 
     @Test("Init with all parameters")
-    func initAllParameters() {
+    func initAllParameters() throws {
         let trajectory = ProjectTrajectory(
             projectID: "proj-1",
             slope: 0.02,
@@ -104,7 +104,8 @@ struct ProjectTrajectoryTests {
         #expect(trajectory.validity == .valid)
         #expect(trajectory.direction == .improving)
         #expect(trajectory.inflectionDetected == true)
-        #expect(abs(trajectory.recentSlope! - 0.03) < 1e-10)
+        let recentSlope = try #require(trajectory.recentSlope)
+        #expect(abs(recentSlope - 0.03) < 1e-10)
     }
 
     @Test("Init defaults: inflectionDetected=false, recentSlope=nil")

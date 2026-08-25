@@ -675,3 +675,52 @@ struct BaselineSnapshotTests {
         #expect(CheckResultMetadata.currentSchemaVersion == 2)
     }
 }
+
+@Suite("TruncationRecord")
+struct TruncationRecordTests {
+
+    private func makeMeta(truncation: TruncationRecord?) -> CheckResultMetadata {
+        CheckResultMetadata(
+            projectID: "jpurnell__quality-gate-swift",
+            timestamp: Date(timeIntervalSince1970: 1_777_536_311),
+            environment: .local,
+            decisionOwner: "jpurnell",
+            results: [],
+            overrides: [],
+            riskTier: .operational,
+            ethicalFlags: [],
+            consistencyScore: nil,
+            truncation: truncation
+        )
+    }
+
+    @Test("round-trips through CheckResultMetadata")
+    func roundTrips() throws {
+        let meta = makeMeta(truncation: TruncationRecord(
+            stoppedAt: "test-quality",
+            unreached: ["recursion", "concurrency", "doc-code"]))
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: encoder.encode(meta))
+        #expect(decoded.truncation?.stoppedAt == "test-quality")
+        #expect(decoded.truncation?.unreached == ["recursion", "concurrency", "doc-code"])
+    }
+
+    @Test("legacy artifacts without the field decode as a complete run")
+    func legacyDecodesAsNil() throws {
+        let meta = makeMeta(truncation: nil)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CheckResultMetadata.self, from: encoder.encode(meta))
+        #expect(decoded.truncation == nil)
+    }
+
+    @Test("truncation does not bump the schema version (defaulted field rule)")
+    func noSchemaBump() {
+        #expect(CheckResultMetadata.currentSchemaVersion == 2)
+    }
+}

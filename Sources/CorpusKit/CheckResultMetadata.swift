@@ -60,6 +60,30 @@ public struct BaselineSnapshot: Sendable, Codable, Equatable {
     }
 }
 
+/// How a run that stopped early stopped (quality-gate Change C).
+///
+/// A default run halts at its first failing checker, and every checker ordered
+/// after it never ran. Without this record, a truncated run is indistinguishable
+/// from a clean scoped run — zero findings from an unreached checker reads as a
+/// pass, which is how one package's false positives stayed invisible for months.
+/// Readers computing pass rates or finding counts must treat `unreached`
+/// checkers as absent evidence, not as clean results.
+public struct TruncationRecord: Sendable, Codable, Equatable {
+    /// The failing checker the run stopped at.
+    public let stoppedAt: String
+    /// Checker ids selected for this run that never executed because of the stop.
+    public let unreached: [String]
+
+    /// Creates a truncation record.
+    /// - Parameters:
+    ///   - stoppedAt: The failing checker the run stopped at.
+    ///   - unreached: Selected checkers that never executed.
+    public init(stoppedAt: String, unreached: [String]) {
+        self.stoppedAt = stoppedAt
+        self.unreached = unreached
+    }
+}
+
 /// Whose repository the gate ran against (Phase 1, overlay model).
 ///
 /// Foreign runs record under the upstream identity but stay distinguishable
@@ -170,6 +194,12 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     /// schema bump).
     public let baseline: BaselineSnapshot?
 
+    /// How the run stopped early, when it did (Change C). Nil for complete
+    /// runs and pre-Change-C artifacts (defaulted — not a schema bump).
+    /// A record with this set carries **absent evidence** for every checker
+    /// it names: their zero findings mean "never ran", not "clean".
+    public let truncation: TruncationRecord?
+
     /// The writer-identity key the second-writer tripwire clusters on:
     /// `ci:<provider>:<actor>` when provider-verified, else
     /// `asserted:<owner>@<host>` (or `asserted:<owner>` for legacy artifacts
@@ -204,6 +234,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
     ///   - host: Machine attribution for asserted runs. Defaults to nil.
     ///   - gateMode: How the run's verdict was applied (standard or advisory). Defaults to standard.
     ///   - baseline: The applied baseline ledger's per-run counts, when the run had one. Defaults to nil.
+    ///   - truncation: How the run stopped early, when it did. Defaults to nil (complete run).
     public init(
         projectID: String,
         timestamp: Date,
@@ -222,7 +253,8 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         ciIdentity: CIIdentity? = nil,
         host: String? = nil,
         gateMode: GateMode = .standard,
-        baseline: BaselineSnapshot? = nil
+        baseline: BaselineSnapshot? = nil,
+        truncation: TruncationRecord? = nil
     ) {
         self.projectID = projectID
         self.timestamp = timestamp
@@ -243,6 +275,7 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.host = host
         self.gateMode = gateMode
         self.baseline = baseline
+        self.truncation = truncation
     }
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
@@ -267,5 +300,6 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         host = try container.decodeIfPresent(String.self, forKey: .host)
         gateMode = try container.decodeIfPresent(GateMode.self, forKey: .gateMode) ?? .standard
         baseline = try container.decodeIfPresent(BaselineSnapshot.self, forKey: .baseline)
+        truncation = try container.decodeIfPresent(TruncationRecord.self, forKey: .truncation)
     }
 }

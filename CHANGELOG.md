@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-08-25
+
+### Added
+- `TruncationRecord` and `CheckResultMetadata.truncation` (quality-gate
+  Change C): a default gate run halts at its first failing checker, and every
+  checker after it never runs. Until now the emitted record could not express
+  that — a truncated run was indistinguishable from a clean scoped run, so
+  dashboards read "never ran" as "found nothing". Optional and defaulted;
+  legacy artifacts decode as complete runs, no schema bump (defaulted-field
+  rule).
+
 ## [1.14.0] — 2026-07-29
 
 ### Added

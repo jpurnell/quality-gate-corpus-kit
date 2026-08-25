@@ -51,13 +51,53 @@ removed instead of renamed.
 be single-line and sit on line N-1. Multi-line versions are silently ignored,
 which reads as "the exemption doesn't work" rather than "it's misplaced".
 
+## Then: the schema-stability questions
+
+With the gate green, the two `[NEEDS INPUT]` markers under *Stability* were
+answered from what the code does rather than by inventing a policy.
+
+**The first was malformed.** It asked for "the current schema version", but
+versioning is per artifact type and the types are deliberately not in lockstep:
+`CheckResultMetadata` is v2 (`runScope`, `c759b99`), the other six are v1. It is
+now a table, with an explicit instruction not to collapse it into a scalar — a
+package-wide number would go stale silently the next time any one type bumps,
+which is precisely the failure mode that section exists to prevent.
+
+**The second already had a de facto answer of 1**, because `CorpusSchema.decode`
+enforces only an upper bound and has no floor at all. The open question was
+whether that was intended. It is now policy: **v1 forever**. The corpus is an
+append-only longitudinal series, not a wire protocol — nothing migrates old
+artifacts, so a rolling support window would make 2026 telemetry unreadable in
+2028 and destroy the thing the package exists to protect. The only way the floor
+moves is an explicit migration that rewrites artifacts forward.
+
+Recorded alongside it: because the policy is asymmetric, the risk sits on the
+*newer* side. A producer that bumps ahead of its readers corrupts nothing, but
+silently thins the consumer's series, since those artifacts are skipped.
+
 ## Result
 
 Gate at **0 errors / 0 warnings**, 40 of 45 checkers. Institutional consistency
-score recovered from 0.00 to 1.00. All 453 tests pass.
+score recovered from 0.00 to 1.00. All 453 tests pass. Two commits on
+`fix/bounded-io-subprocess-kernel`: `9b19d5f` (the kernel) and `0067da8` (the
+schema policy).
 
 ## Next
 
-The two `[NEEDS INPUT]` items in `master_plan.md` under *Stability* — the current
-schema version and the oldest version readers still support — are still open and
-everything else in that document depends on them.
+Both gaps that keep the v1 floor from being enforceable, now recorded as
+Priorities in `master_plan.md`:
+
+1. **No conforming type has a checked-in v1 fixture.** Old-version decode lives
+   in inline JSON literals across three test files, covering
+   `CheckResultMetadata` and leaving the other six types unpinned. *Quality
+   Standards* has asked for these fixtures all along; until they exist, "v1
+   forever" is an intention rather than something a test would catch you
+   breaking.
+2. **`.skippedNewer` has no consumer** outside the test suite. A skipped
+   artifact should reach a human somewhere.
+
+One cross-repo question is open and does not belong to this package alone:
+corpus-kit closed its CWE-22 findings with `// SAFETY:` annotations, where
+`org-judgement-system` built a `TemporaryDirectory` sandbox. Two sibling repos
+now answer the same finding two ways. See the handoff for the argument on both
+sides; it wants one ruling applied to both.

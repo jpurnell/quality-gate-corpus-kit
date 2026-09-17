@@ -5,7 +5,19 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.16.0] — 2026-09-17
+
+### Changed
+- **Deployment floor lowered to `.macOS(.v14)`.** The package declared `.v15` while depending on
+  nothing that needed it: `QualityGateTypes` is v14, Yams and swift-docc-plugin impose nothing, and
+  there is not one `@available(macOS 15)` annotation in `Sources/`. The floor was inherited from
+  `quality-gate-swift`, where it is load-bearing for the gate's index-store and GPU work, and
+  carried here by copy.
+
+  It stopped being free the moment something wanted to read a corpus without being able to run the
+  gate. `ijs-mcp-server` is that case — it only reads corpus JSON and serves MCP, both of which
+  `SwiftMCPServer` already does at v14 on four production servers, but it could not be hosted
+  beside them because this floor put it out of reach of a macOS 14.8.9 host.
 
 ### Added
 - `ProcessRunner` and `ProcessResult` — the package's single audited subprocess
@@ -14,8 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   concurrently. `ProcessResult.outputTruncated` reports a capture cut short
   because a grandchild still held an inherited pipe write end open, rather than
   presenting a partial capture as whole.
-- A `CorpusKit.docc` catalogue, so `doc-lint` has a target to examine instead of
-  passing vacuously on a package with none.
+- A `CorpusKit.docc` catalogue, **declared as a resource rather than excluded**, so `doc-lint` has
+  a target to examine instead of passing vacuously on a package with none.
+
+  The catalogue was added earlier in this cycle with `exclude: ["CorpusKit.docc"]`, which silences
+  SwiftPM's unhandled-file warning by removing the catalogue from `sourceFiles` — exactly where
+  swift-docc-plugin looks for it. So DocC received nothing and `doc-lint` still passed vacuously,
+  while this entry already claimed otherwise. `resources: [.copy(…)]` makes the claim true. The
+  gate said so on its own (`doc-lint.catalogue-excluded`), which is the difference between this
+  and the three documentation claims corrected elsewhere today that nothing checked.
+
+### Fixed
+- Four `coalesced-assertion` findings in this package's own tests —
+  `abs((stats.meanConsistencyScore ?? 0) - 0.82) < 1e-6` and three of the same shape — are now
+  `try #require` bindings, so a missing score fails by naming itself rather than failing an
+  arithmetic comparison it was never about. Two of the four needed their test function marked
+  `throws`, which is the gotcha the rule's own diagnostic warns about.
 
 ### Fixed
 - **Latent hang in `ProjectIdentity.originRemoteURL`.** It attached a `Pipe` to

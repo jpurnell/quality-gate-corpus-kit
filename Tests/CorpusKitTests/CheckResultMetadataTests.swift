@@ -66,7 +66,7 @@ struct OverrideRecordTests {
     )
 
     @Test("Golden path: all fields populated")
-    func goldenPath() {
+    func goldenPath() throws {
         let record = Self.sample
         #expect(record.diagnosticOverride.ruleId == "force-unwrap")
         #expect(record.diagnosticOverride.justification.contains("C-API"))
@@ -152,7 +152,7 @@ struct CheckResultMetadataTests {
     }
 
     @Test("Golden path: full metadata with results and overrides")
-    func goldenPath() {
+    func goldenPath() throws {
         let meta = Self.makeSample(
             overrides: [OverrideRecordTests.sample],
             consistencyScore: 0.85
@@ -163,7 +163,8 @@ struct CheckResultMetadataTests {
         #expect(meta.results.count == 1)
         #expect(meta.overrides.count == 1)
         #expect(meta.riskTier == .safety)
-        #expect(abs((meta.consistencyScore ?? 0) - 0.85) < 1e-6)
+        let score = try #require(meta.consistencyScore)
+        #expect(abs(score - 0.85) < 1e-6)
     }
 
     @Test("Codable round-trip preserves all fields")
@@ -224,7 +225,8 @@ struct CheckResultMetadataTests {
         let meta = Self.makeSample(consistencyScore: 0.75)
         let data = try JSONEncoder().encode(meta)
         let decoded = try JSONDecoder().decode(CheckResultMetadata.self, from: data)
-        #expect(abs((decoded.consistencyScore ?? 0) - 0.75) < 1e-6)
+        let score = try #require(decoded.consistencyScore)
+        #expect(abs(score - 0.75) < 1e-6)
     }
 
     @Test("Multiple results with multiple diagnostics")

@@ -31,7 +31,7 @@ struct PulseStatisticsTests {
     }
 
     @Test("Golden path: all fields populated")
-    func goldenPath() {
+    func goldenPath() throws {
         let stats = makeStats()
         #expect(stats.totalGateRuns == 47)
         #expect(stats.passedRuns == 41)
@@ -41,7 +41,8 @@ struct PulseStatisticsTests {
         #expect(stats.failuresByChecker["ConcurrencyAuditor"] == 3)
         #expect(stats.rootCauseDistribution["contextually naive"] == 2)
         #expect(stats.failedStepDistribution[.diagnosis] == 2)
-        #expect(abs((stats.meanConsistencyScore ?? 0) - 0.82) < 1e-6)
+        let meanConsistency = try #require(stats.meanConsistencyScore)
+        #expect(abs(meanConsistency - 0.82) < 1e-6)
     }
 
     @Test("passRate computed correctly as percentage")
@@ -119,7 +120,8 @@ struct PulseStatisticsTests {
         let decoded = try decoder.decode(PulseStatistics.self, from: data)
         #expect(decoded == stats)
         #expect(decoded.projectHealth?.totalProjects == 3)
-        #expect(abs((decoded.projectHealth?.meanHealthRate ?? 0) - 83.333) < 0.01)
+        let decodedHealth = try #require(decoded.projectHealth)
+        #expect(abs(decodedHealth.meanHealthRate - 83.333) < 0.01)
     }
 
     @Test("Mixed validity trends in statistics")

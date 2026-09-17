@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "quality-gate-corpus-kit",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v14)],
     products: [
         .library(name: "CorpusKit", targets: ["CorpusKit"]),
     ],

@@ -5,6 +5,26 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] — 2026-09-18
+
+### Added
+- **`TimestampedRun.latestStandardResults(of:)`** — the composite reading of "where does this
+  project stand", promoted from a `DashboardLoader` static in `quality-gate-swift`.
+
+  A project's state is not its newest run. A one-checker invocation, run while iterating, is
+  newer than the last full sweep, and reading it as the whole picture blanks every other
+  checker's findings. This walks the standard-mode runs oldest to newest and keeps the latest
+  result *per checker*. Advisory runs are excluded for the same reason: a deliberate narrowing
+  must not overwrite a broad run's verdict for the checkers they share.
+
+  It surfaced because it was the one function the terminal dashboard and the SwiftUI app
+  genuinely shared, and `DashboardLoader` — everything else in that file being presentation —
+  left for `quality-gate-dashboard`. It operates purely on `[TimestampedRun] → [CheckResult]`,
+  both types that live here, so this is its home rather than a copy in each caller.
+
+  Six tests came with the promotion; it had none of its own before, having been reachable only
+  through `inboxFindings`.
+
 ## [1.18.0] — 2026-09-18
 
 ### Added

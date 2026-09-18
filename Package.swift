@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "IJSAggregator", targets: ["IJSAggregator"]),
         .library(name: "IJSPolicyDiscovery", targets: ["IJSPolicyDiscovery"]),
         .library(name: "IJSDashboardCore", targets: ["IJSDashboardCore"]),
+        .library(name: "JudgmentWorkbench", targets: ["JudgmentWorkbench"]),
     ],
     dependencies: [
         // 1.5.0, not 1.1.0: the absorbed IJS layer uses `Diagnostic.isViolation`, which
@@ -81,7 +82,28 @@ let package = Package(
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
             ]
         ),
+        // Moved from quality-gate-swift 2026-09-18. It declared a dependency on
+        // `QualityGateCore` and used nothing from it: `CheckResult`, `Diagnostic` and
+        // `DiagnosticOverride` all live in `QualityGateTypes` and reached it only through
+        // QualityGateCore's `@_exported import`. Naming the real source removes the edge,
+        // which is what let the file move at all — `quality-gate-dashboard` needs
+        // `FindingsInbox` for its drill-down inbox and must not link the gate to get it.
+        .target(
+            name: "JudgmentWorkbench",
+            dependencies: [
+                "CorpusKit",
+                .product(name: "QualityGateTypes", package: "quality-gate-types"),
+            ]
+        ),
         .testTarget(name: "IJSAggregatorTests", dependencies: ["IJSAggregator"]),
+        // The unit half of the suite. The golden re-audit tests stay in quality-gate-swift:
+        // they drive `IdiomAuditor`, `SmellPack` and `CustomRulesChecker` to prove the
+        // acknowledgment markers this module writes are the ones those auditors actually
+        // honour, and that claim can only be tested where the auditors live.
+        .testTarget(
+            name: "JudgmentWorkbenchTests",
+            dependencies: ["JudgmentWorkbench", "CorpusKit"]
+        ),
         .testTarget(
             name: "IJSPolicyDiscoveryTests",
             dependencies: ["IJSPolicyDiscovery", "IJSAggregator", "CorpusKit"]

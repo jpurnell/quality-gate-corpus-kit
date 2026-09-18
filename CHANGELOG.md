@@ -5,6 +5,33 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] — 2026-09-18
+
+### Added
+- **`JudgmentWorkbench`** — `FindingsInbox`, `AcknowledgeableRule` and `MarkerWriter`, moved here
+  from `quality-gate-swift`.
+
+  It is corpus reading, not gate machinery: it turns a run's recorded `.note` diagnostics into
+  acknowledgeable inbox items and writes the acknowledgment marker back at the flagged line. The
+  dashboard's drill-down inbox is its main consumer, and reaching it meant linking the whole
+  static-analysis package.
+
+  **The dependency that made it unmovable was not real.** The target declared `QualityGateCore`
+  and used nothing from it — `CheckResult`, `Diagnostic` and `DiagnosticOverride` all live in
+  `QualityGateTypes`, and reached the module only through `QualityGateCore`'s
+  `@_exported import`. Naming the real source removes the edge, and all 394 lines compile here
+  against `CorpusKit` and `QualityGateTypes` alone. Worth recording as the second time a
+  re-export has hidden a package boundary from the people drawing it; `IJSSensor` was retired in
+  1.17.0 for the same reason.
+
+### Testing
+- The suite is **split by what it can prove where**. The unit half — 30-odd tests over the rule
+  registry, the marker text surgery, and inbox extraction — moves with the sources. The **golden
+  re-audit** tests stay in `quality-gate-swift`: they drive `IdiomAuditor`, `SmellPack` and
+  `CustomRulesChecker` end to end to show that the marker this module writes is the one those
+  auditors actually honour on the next run. That claim is only testable where the auditors are,
+  and it is the claim most worth keeping.
+
 ## [1.17.0] — 2026-09-18
 
 ### Added

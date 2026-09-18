@@ -5,6 +5,45 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] — 2026-09-18
+
+### Added
+- **The IJS sensing layer** — `IJSAggregator`, `IJSPolicyDiscovery`, `IJSDashboardCore` — moved
+  here from `quality-gate-swift`. They read a corpus and compute over it, and are shared by the
+  gate's three corpus-reading checkers, by `ijs-mcp-server` and by `quality-gate-dashboard`.
+  Belonging to none of those, they now live beside the format they read.
+- `CorpusPath.isSingleComponent(_:)` and `requireSingleComponent(_:label:)` — a corpus
+  identifier names one directory; anything carrying a separator or a relative component is a
+  path, not an identifier.
+
+### Fixed
+- **Path traversal in the corpus readers.** `loadRuns(for:)` and
+  `loadLatestOrientationReport(for:)` interpolated their `project` argument into a filesystem
+  path with no containment. A crafted `project_id` from an MCP tool call read a **different
+  corpus** and returned a valid-looking consistency score. Both now validate the identifier and
+  containment-check the resolved path; the MCP tools also refuse a bad `project_id` at the
+  boundary, so it fails as a named error rather than an empty result.
+
+  `loadPulse(label:)` was guarded, but by `fileURL.path.hasPrefix(baseURL.path)` — which accepts
+  `/corpus-evil` for a base of `/corpus`. It compares path components now, which is why
+  `CorpusPath.contains(_:within:)` exists.
+
+  The `// SAFETY:` comments on those lines read *"project from discoverProjects"*. That was true
+  when the only caller listed the directory itself, and false once a network-facing server
+  passed client strings to a reader.
+
+### Removed
+- **`IJSSensor`.** One line — `@_exported import CorpusKit` — kept because it looked free. It
+  failed to forward `CorpusPath` where that was wanted, forwarded CorpusKit's new
+  `ProcessRunner` into 29 consumer files where it collided with the `swift-process-kernel`
+  package that owns that name, and hid the collision behind a wrong-member error instead of an
+  ambiguity error. Consumers `import CorpusKit` directly.
+
+### Changed
+- `quality-gate-types` floor raised to **1.5.0**. The absorbed code uses `Diagnostic.isViolation`,
+  which postdates 1.1.x; the old floor resolved to 1.1.1 and compiled only because nothing here
+  needed the newer surface.
+
 ## [1.16.0] — 2026-09-17
 
 ### Changed

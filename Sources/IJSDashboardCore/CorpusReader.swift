@@ -110,6 +110,55 @@ public struct CorpusReader: Sendable {
 
     // MARK: - Pulse Loading
 
+    /// The corpus `pulse/` directory, standardized and checked for containment.
+    ///
+    /// `corpusPath` reaches this type from configuration, but configuration is a file on
+    /// disk that can name anything, so it is not a trusted literal. Standardizing collapses
+    /// any `..` it carries *before* the directory is listed, and ``CorpusPath/contains(_:within:)``
+    /// compares path components — not a string prefix, which would accept `/corpus-evil`
+    /// for a base of `/corpus`. Returns `nil` when the pulse directory would fall outside
+    /// the corpus, so every caller reports "no pulse" rather than reading a foreign tree.
+    private static func pulseDirectoryURL(inCorpusAt corpusPath: String) -> URL? {
+        let baseURL = URL(fileURLWithPath: corpusPath).standardized
+        let pulseURL = baseURL.appendingPathComponent("pulse", isDirectory: true).standardized
+        guard CorpusPath.contains(pulseURL.path, within: baseURL.path) else { return nil }
+        return pulseURL
+    }
+
+    /// Names of the label subdirectories directly inside `pulseURL`.
+    ///
+    /// Listing by URL asks the file system which entries are directories instead of
+    /// re-joining each name onto a path string and stat-ing it, so the returned names are
+    /// single components by construction — a label can never reintroduce a separator.
+    ///
+    /// - Throws: `CocoaError.fileReadNoSuchFile` when the pulse directory does not exist,
+    ///   which callers treat as an empty corpus rather than an error.
+    private static func labelDirectoryNames(in pulseURL: URL) throws -> [String] {
+        let entries = try FileManager.default.contentsOfDirectory(
+            at: pulseURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+
+        var names: [String] = []
+        for entry in entries {
+            let values = try entry.resourceValues(forKeys: [.isDirectoryKey])
+            guard values.isDirectory == true else { continue }
+            names.append(entry.lastPathComponent)
+        }
+        return names
+    }
+
+    /// The pulse JSON file for `label` inside an already-validated pulse directory.
+    ///
+    /// Each component is appended separately so that a label is always one path component:
+    /// `appendingPathComponent` percent-encodes a separator rather than descending.
+    private static func pulseFileURL(in pulseURL: URL, label: String) -> URL {
+        pulseURL
+            .appendingPathComponent(label, isDirectory: true)
+            .appendingPathComponent("PULSE_\(label).json")
+    }
+
     /// Loads the most recent InstitutionalPulse from the corpus pulse directory.
     ///
     /// Scans `<corpusPath>/pulse/` for labeled directories (both `YYYY-WNN`
@@ -117,38 +166,34 @@ public struct CorpusReader: Sendable {
     /// then returns the pulse from the latest one.
     /// Returns nil if no pulse directory exists or all files are malformed.
     public func loadLatestPulse() -> InstitutionalPulse? {
-        let pulsePath = "\(corpusPath)/pulse" // SAFETY: corpusPath is from configuration
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: pulsePath) else { return nil } // SAFETY: read-only check on configured path
+        guard let pulseURL = Self.pulseDirectoryURL(inCorpusAt: corpusPath) else { return nil }
 
-        // SAFETY: pulsePath derived from validated configuration, read-only listing
-        let contents: [String]
+        let labelDirs: [String]
         do {
-            contents = try fm.contentsOfDirectory(atPath: pulsePath)
+            labelDirs = try Self.labelDirectoryNames(in: pulseURL)
+                .sorted { lhs, rhs in
+                    Self.chronologicalDescending(lhs, rhs)
+                }
+        } catch CocoaError.fileReadNoSuchFile {
+            Self.logger.debug("Corpus at \(pulseURL.path, privacy: .public) has no pulse directory yet")
+            return nil
         } catch {
-            Self.logger.warning("Failed to list pulse directory \(pulsePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Self.logger.warning("Failed to list pulse directory \(pulseURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil
         }
-
-        let labelDirs = contents
-            .filter { name in
-                var isDir: ObjCBool = false
-                return fm.fileExists(atPath: "\(pulsePath)/\(name)", isDirectory: &isDir) && isDir.boolValue // SAFETY: reads subdir of configured path
-            }
-            .sorted { lhs, rhs in
-                Self.chronologicalDescending(lhs, rhs)
-            }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
         for dirLabel in labelDirs {
-            let filePath = "\(pulsePath)/\(dirLabel)/PULSE_\(dirLabel).json" // SAFETY: child of configured pulse path
-            guard let data = fm.contents(atPath: filePath) else { continue } // SAFETY: reads pulse JSON
+            let fileURL = Self.pulseFileURL(in: pulseURL, label: dirLabel)
             do {
-                return try decoder.decode(InstitutionalPulse.self, from: data)
+                return try decoder.decode(InstitutionalPulse.self, from: Data(contentsOf: fileURL))
+            } catch CocoaError.fileReadNoSuchFile {
+                Self.logger.debug("Pulse directory \(dirLabel, privacy: .public) holds no pulse file")
+                continue
             } catch {
-                Self.logger.warning("Skipping malformed pulse at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                Self.logger.warning("Skipping malformed pulse at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 continue
             }
         }
@@ -166,38 +211,38 @@ public struct CorpusReader: Sendable {
     /// Lists all pulse labels (both `YYYY-WNN` and `YYYY-MM-DD` formats) that
     /// have a valid pulse JSON file, sorted chronologically ascending.
     public func listAvailableLabels() -> [String] {
-        let pulsePath = "\(corpusPath)/pulse" // SAFETY: corpusPath from configuration
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: pulsePath) else { return [] } // SAFETY: read-only check on configured path
-        let contents: [String]
+        guard let pulseURL = Self.pulseDirectoryURL(inCorpusAt: corpusPath) else { return [] }
+
+        let labelDirs: [String]
         do {
-            contents = try fm.contentsOfDirectory(atPath: pulsePath)
+            labelDirs = try Self.labelDirectoryNames(in: pulseURL)
+        } catch CocoaError.fileReadNoSuchFile {
+            Self.logger.debug("Corpus at \(pulseURL.path, privacy: .public) has no pulse directory yet")
+            return []
         } catch {
-            Self.logger.warning("Failed to list pulse directory \(pulsePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Self.logger.warning("Failed to list pulse directory \(pulseURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return []
         }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        return contents
-            .filter { name in
-                var isDir: ObjCBool = false
-                guard fm.fileExists(atPath: "\(pulsePath)/\(name)", isDirectory: &isDir), // SAFETY: child of configured pulse path
-                      isDir.boolValue else { return false }
-                let filePath = "\(pulsePath)/\(name)/PULSE_\(name).json" // SAFETY: child of configured pulse path
-                guard let data = fm.contents(atPath: filePath) else { return false } // SAFETY: reads pulse JSON
-                do {
-                    _ = try decoder.decode(InstitutionalPulse.self, from: data)
-                    return true
-                } catch {
-                    Self.logger.warning("Skipping malformed pulse at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                    return false
-                }
+        var labels: [String] = []
+        for name in labelDirs {
+            let fileURL = Self.pulseFileURL(in: pulseURL, label: name)
+            do {
+                _ = try decoder.decode(InstitutionalPulse.self, from: Data(contentsOf: fileURL))
+                labels.append(name)
+            } catch CocoaError.fileReadNoSuchFile {
+                Self.logger.debug("Pulse directory \(name, privacy: .public) holds no pulse file")
+            } catch {
+                Self.logger.warning("Skipping malformed pulse at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
-            .sorted { lhs, rhs in
-                Self.chronologicalAscending(lhs, rhs)
-            }
+        }
+
+        return labels.sorted { lhs, rhs in
+            Self.chronologicalAscending(lhs, rhs)
+        }
     }
 
     /// Loads a specific pulse by label (date or week format).
@@ -210,17 +255,18 @@ public struct CorpusReader: Sendable {
         // compares path *components* instead. The label is also checked as an identifier, so
         // a traversal attempt fails as "not a label" rather than as "no such pulse".
         guard CorpusPath.isSingleComponent(label) else { return nil }
-        let baseURL = URL(fileURLWithPath: corpusPath).standardized
-        let fileURL = baseURL.appendingPathComponent("pulse/\(label)/PULSE_\(label).json").standardized
-        guard CorpusPath.contains(fileURL.path, within: baseURL.path) else { return nil }
-        let fm = FileManager.default
-        guard let data = fm.contents(atPath: fileURL.path) else { return nil } // SAFETY: reads validated pulse file
+        guard let pulseURL = Self.pulseDirectoryURL(inCorpusAt: corpusPath) else { return nil }
+        let fileURL = Self.pulseFileURL(in: pulseURL, label: label).standardized
+        guard CorpusPath.contains(fileURL.path, within: pulseURL.path) else { return nil }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
         do {
-            return try decoder.decode(InstitutionalPulse.self, from: data)
+            return try decoder.decode(InstitutionalPulse.self, from: Data(contentsOf: fileURL))
+        } catch CocoaError.fileReadNoSuchFile {
+            Self.logger.debug("Corpus holds no pulse for label \(label, privacy: .public)")
+            return nil
         } catch {
             Self.logger.warning("Failed to decode pulse \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil

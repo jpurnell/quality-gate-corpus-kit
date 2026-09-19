@@ -24,15 +24,6 @@ import Foundation
 /// location even when the base is reached through a symlink.
 extension CorpusPath {
 
-    /// Whether `path` resolves to a location contained within `basePath`.
-    ///
-    /// Pure and lexical — no filesystem access, no symlink resolution — so it is
-    /// symmetric between existing and not-yet-created paths.
-    ///
-    /// - Parameters:
-    ///   - path: The candidate absolute path.
-    ///   - basePath: The corpus base the path must stay within.
-    /// - Returns: `true` when `path` is `basePath` or a descendant of it.
     /// Whether an identifier is a single, safe path component.
     ///
     /// A corpus identifier — a `projectID`, a pulse label, a slug — names **one** directory.
@@ -73,6 +64,15 @@ extension CorpusPath {
         }
     }
 
+    /// Whether `path` resolves to a location contained within `basePath`.
+    ///
+    /// Pure and lexical — no filesystem access, no symlink resolution — so it is
+    /// symmetric between existing and not-yet-created paths.
+    ///
+    /// - Parameters:
+    ///   - path: The candidate absolute path.
+    ///   - basePath: The corpus base the path must stay within.
+    /// - Returns: `true` when `path` is `basePath` or a descendant of it.
     public static func contains(_ path: String, within basePath: String) -> Bool {
         let baseComponents = URL(fileURLWithPath: basePath).standardized.pathComponents
         let targetComponents = URL(fileURLWithPath: path).standardized.pathComponents

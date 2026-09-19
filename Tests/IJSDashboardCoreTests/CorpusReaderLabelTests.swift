@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 @testable import IJSDashboardCore
-@testable import IJSSensor
+import CorpusKit
 import QualityGateTypes
 
 @Suite("CorpusReader Label-Aware Pulse Loading")
@@ -37,9 +37,12 @@ struct CorpusReaderLabelTests {
 
     @Test("listAvailableLabels returns empty when no pulse directory")
     func listLabelsNoPulseDir() throws {
-        let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
-        try FileManager.default.createDirectory(atPath: "\(tmp)/telemetry", withIntermediateDirectories: true)
-        let reader = CorpusReader(corpusPath: tmp)
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ijs-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: tmp.appendingPathComponent("telemetry", isDirectory: true),
+            withIntermediateDirectories: true)
+        let reader = CorpusReader(corpusPath: tmp.path)
         let labels = reader.listAvailableLabels()
         #expect(labels.isEmpty)
     }
@@ -47,8 +50,9 @@ struct CorpusReaderLabelTests {
     @Test("listAvailableLabels skips directories without valid pulse JSON")
     func listLabelsSkipsInvalid() throws {
         let corpus = try makeCorpusWithLabels(labels: ["2026-W18", "2026-06-05"])
-        let emptyDir = "\(corpus)/pulse/2026-06-03"
-        try FileManager.default.createDirectory(atPath: emptyDir, withIntermediateDirectories: true)
+        let emptyDir = URL(fileURLWithPath: corpus)
+            .appendingPathComponent("pulse/2026-06-03", isDirectory: true)
+        try FileManager.default.createDirectory(at: emptyDir, withIntermediateDirectories: true)
         let reader = CorpusReader(corpusPath: corpus)
         let labels = reader.listAvailableLabels()
         #expect(labels == ["2026-W18", "2026-06-05"])
@@ -153,16 +157,21 @@ struct CorpusReaderLabelTests {
 // MARK: - Helpers
 
 private func makeCorpusWithLabels(labels: [String]) throws -> String {
-    let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+    let tmp = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ijs-test-\(UUID().uuidString)", isDirectory: true)
     let fm = FileManager.default
-    try fm.createDirectory(atPath: "\(tmp)/telemetry", withIntermediateDirectories: true)
+    try fm.createDirectory(
+        at: tmp.appendingPathComponent("telemetry", isDirectory: true),
+        withIntermediateDirectories: true)
 
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
 
     for label in labels {
-        let pulseDir = "\(tmp)/pulse/\(label)"
-        try fm.createDirectory(atPath: pulseDir, withIntermediateDirectories: true)
+        let pulseDir = tmp
+            .appendingPathComponent("pulse", isDirectory: true)
+            .appendingPathComponent(label, isDirectory: true)
+        try fm.createDirectory(at: pulseDir, withIntermediateDirectories: true)
 
         let pulse = InstitutionalPulse(
             windowStart: Date(timeIntervalSince1970: 1747267200),
@@ -186,8 +195,8 @@ private func makeCorpusWithLabels(labels: [String]) throws -> String {
             generatedAt: Date(timeIntervalSince1970: 1747958400)
         )
         let data = try encoder.encode(pulse)
-        try data.write(to: URL(fileURLWithPath: "\(pulseDir)/PULSE_\(label).json"))
+        try data.write(to: pulseDir.appendingPathComponent("PULSE_\(label).json"))
     }
 
-    return tmp
+    return tmp.path
 }

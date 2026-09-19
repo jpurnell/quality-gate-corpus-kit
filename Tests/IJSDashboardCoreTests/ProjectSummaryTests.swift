@@ -2,7 +2,6 @@ import Testing
 import Foundation
 @testable import IJSAggregator
 @testable import IJSDashboardCore
-@testable import IJSSensor
 import QualityGateTypes
 
 @Suite("ProjectSummary")

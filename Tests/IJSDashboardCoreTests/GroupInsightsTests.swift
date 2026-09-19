@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 @testable import IJSDashboardCore
-@testable import IJSSensor
+import CorpusKit
 
 @Suite("GroupInsights")
 struct GroupInsightsTests {

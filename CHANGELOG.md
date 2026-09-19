@@ -5,6 +5,54 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] — 2026-09-19
+
+### Fixed
+- **Path traversal in the pulse readers.** `loadLatestPulse()` and `listAvailableLabels()`
+  built `"\(corpusPath)/pulse"` by interpolation and listed it with
+  `contentsOfDirectory(atPath:)` **with no containment check at all** — the one reader class
+  the 1.17.0 fix missed. That fix hardened `loadRuns(for:)`, `loadLatestOrientationReport(for:)`
+  and `loadPulse(label:)`; the two pulse-listing paths sat three functions away and were not
+  reached, which is the ordinary shape of an incomplete security pass rather than a surprise.
+
+  All three pulse paths now route through one validated seam: `pulseDirectoryURL(inCorpusAt:)`
+  standardizes the base so `..` collapses *before* the listing and component-checks it via
+  `CorpusPath.contains(_:within:)`; `labelDirectoryNames(in:)` lists by URL and asks the
+  filesystem which entries are directories, so a label is a single component by construction;
+  `pulseFileURL(in:label:)` appends each component separately, where a separator is
+  percent-encoded instead of descending. `loadPulse(label:)` was already guarded and now shares
+  the same seam, so there is one containment implementation here instead of two.
+
+- **Eight test files imported the retired `IJSSensor`.** The module was removed in 1.17.0, but
+  `Tests/IJSDashboardCoreTests` still carried `@testable import IJSSensor`. It resolved locally
+  only against stale `.build` artifacts whose `@_exported import CorpusKit` was still on disk —
+  **a clean checkout or CI would not have built.** Six files needed `import CorpusKit` in its
+  place; two needed nothing and had been carrying a dead import all along. Verified against a
+  `swift package clean` rebuild, and each of the six confirmed individually rather than added
+  wholesale.
+
+  This is the third time a re-export has hidden a package boundary (`IJSSensor` in 1.17.0,
+  `QualityGateCore` in 1.18.0). The new part is that deleting the re-export did not surface the
+  breakage, because an incremental build kept answering from artifacts of a module that no
+  longer exists.
+
+- **`CorpusPath.contains(_:within:)` was undocumented**, and its doc comment had drifted above
+  `isSingleComponent(_:)` — which left a public function with no DocC and attributed `path` and
+  `basePath` to a function taking neither. Reattached.
+
+### Changed
+- The pulse readers **log rather than swallow**. Rewriting the above on `try?` and bare catches
+  traded a `safety` warning for five `logging` ones, which was not a fix. A missing pulse
+  directory — the ordinary state of a new corpus — now logs at `.debug`; an unreadable or
+  malformed artifact logs at `.warning`. Same return values, no suppression comments.
+
+### Notes
+- Both defects above were **behind a gate run that stopped at checker 3 of 45.** With `safety`
+  failing, 26 checkers never executed, and "no findings from a checker that did not run" reads
+  exactly like "no findings". The dead-import break was found only after `safety` passed and
+  `dependency-audit` finally reached the tree. Gate now **40/40, 0 errors / 0 warnings**, no
+  overrides, with all 700 tests passing from a clean build.
+
 ## [1.19.0] — 2026-09-18
 
 ### Added

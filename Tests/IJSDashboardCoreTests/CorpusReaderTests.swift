@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 @testable import IJSDashboardCore
-@testable import IJSSensor
+import CorpusKit
 import QualityGateTypes
 
 @Suite("CorpusReader")
@@ -26,9 +26,13 @@ struct CorpusReaderTests {
     @Test("Skips malformed JSON with warning")
     func skipsMalformedJSON() throws {
         let corpus = try makeTestCorpus(projects: [])
-        let projectDir = "\(corpus)/telemetry/broken/2026-05-15"
-        try FileManager.default.createDirectory(atPath: projectDir, withIntermediateDirectories: true)
-        try "not json".write(toFile: "\(projectDir)/120000_metadata.json", atomically: true, encoding: .utf8)
+        let projectDir = URL(fileURLWithPath: corpus)
+            .appendingPathComponent("telemetry/broken/2026-05-15", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        try "not json".write(
+            to: projectDir.appendingPathComponent("120000_metadata.json"),
+            atomically: true,
+            encoding: .utf8)
 
         let reader = CorpusReader(corpusPath: corpus)
         let runs = try reader.loadRuns(for: "broken")
@@ -68,18 +72,24 @@ struct CorpusReaderTests {
 // MARK: - Test Helpers
 
 private func makeTestCorpus(projects: [String], runsPerProject: Int = 0) throws -> String {
-    let tmp = NSTemporaryDirectory() + "ijs-test-\(UUID().uuidString)"
+    let tmp = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ijs-test-\(UUID().uuidString)", isDirectory: true)
     let fm = FileManager.default
-    try fm.createDirectory(atPath: "\(tmp)/telemetry", withIntermediateDirectories: true)
-    try fm.createDirectory(atPath: "\(tmp)/pulse", withIntermediateDirectories: true)
-    try fm.createDirectory(atPath: "\(tmp)/snapshots", withIntermediateDirectories: true)
+    for subdirectory in ["telemetry", "pulse", "snapshots"] {
+        try fm.createDirectory(
+            at: tmp.appendingPathComponent(subdirectory, isDirectory: true),
+            withIntermediateDirectories: true)
+    }
 
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
 
     for project in projects {
-        let dateDir = "\(tmp)/telemetry/\(project)/2026-05-15"
-        try fm.createDirectory(atPath: dateDir, withIntermediateDirectories: true)
+        let dateDir = tmp
+            .appendingPathComponent("telemetry", isDirectory: true)
+            .appendingPathComponent(project, isDirectory: true)
+            .appendingPathComponent("2026-05-15", isDirectory: true)
+        try fm.createDirectory(at: dateDir, withIntermediateDirectories: true)
 
         for i in 0..<runsPerProject {
             let timestamp = "\(twoDigits(i + 10))0000"
@@ -98,11 +108,11 @@ private func makeTestCorpus(projects: [String], runsPerProject: Int = 0) throws 
                 consistencyScore: nil
             )
             let data = try encoder.encode(metadata)
-            try data.write(to: URL(fileURLWithPath: "\(dateDir)/\(timestamp)_metadata.json"))
+            try data.write(to: dateDir.appendingPathComponent("\(timestamp)_metadata.json"))
         }
     }
 
-    return tmp
+    return tmp.path
 }
 
 private func makeCheckResult(id: String, passed: Bool) -> CheckResult {

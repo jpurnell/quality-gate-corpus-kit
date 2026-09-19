@@ -22,6 +22,27 @@ data is for.
 dashboard. Anything that touches corpus data should route through `CorpusKit` rather than
 reading the layout directly.
 
+## The reading layer
+
+Between 2026-09-17 and 2026-09-18 this package stopped being only the *format* and became
+the format plus **the shared code that reads it**. Four modules moved here from
+`quality-gate-swift` (1.17.0, 1.18.0):
+
+| Module | Role |
+|---|---|
+| `IJSAggregator` | calibration reports and classification over a run series |
+| `IJSPolicyDiscovery` | policy-discovery auditing and the institutional consistency score |
+| `IJSDashboardCore` | `CorpusReader`, trends, portfolio and project summaries, daily runs |
+| `JudgmentWorkbench` | the findings inbox, acknowledgeable rules, acknowledgment markers |
+
+They belong here by the same argument the package rests on: each is shared by the gate,
+`ijs-mcp-server` and `quality-gate-dashboard`, and belongs to none of them, so a copy in
+each consumer is a second reader — the thing "one implementation" exists to prevent.
+
+`IJSDashboardCore` is now a misnomer: its one dashboard-specific file left for
+`quality-gate-dashboard`. Renaming it touches every import in three packages for no
+behavioural gain, so it is recorded here rather than done.
+
 ---
 
 ## The contract
@@ -49,6 +70,15 @@ describing a run.
 
 **Outside:** running checkers, deciding verdicts, rendering dashboards. This package knows
 how a result is *stored*, never how it is *produced* or *judged*.
+
+**The 1.17.0–1.18.0 absorption bent that line, and it is worth being exact about how.**
+"Never how it is judged" was written when the package held only the format. `IJSPolicyDiscovery`
+computes the institutional consistency score and `JudgmentWorkbench` turns recorded diagnostics
+into acknowledgeable findings — both are readings *derived from* stored results, and neither
+runs a checker or decides a verdict. That is the boundary as it actually stands: **deriving**
+from the corpus is inside, **producing** or **adjudicating** a result stays outside. If a
+future move needs to run an auditor to do its job, it belongs in `quality-gate-swift`; that
+test is what kept `JudgmentWorkbench`'s golden re-audit suite there.
 
 ## Stability
 
@@ -112,15 +142,23 @@ should surface it rather than discard it. Bump a producer only in step with its 
 ### What's Working
 
 - [x] CorpusKit — schema types, deterministic paths, telemetry I/O, git sync
+- [x] IJSAggregator — calibration reports and classification
+- [x] IJSPolicyDiscovery — policy-discovery auditing, institutional consistency score
+- [x] IJSDashboardCore — `CorpusReader`, trends, portfolio and project summaries
+- [x] JudgmentWorkbench — findings inbox, acknowledgeable rules, marker writing
 
-- [x] 47 source files, **54 test files** — the best-covered package in this tier, which is
-      appropriate for something whose failures are silent and retroactive
+- [x] 64 source files, **81 test files** across five modules (CorpusKit alone: 48 and 56)
+      — the best-covered package in this tier, which is appropriate for something whose
+      failures are silent and retroactive
 - [x] **One audited subprocess kernel.** Every spawn routes through `ProcessRunner`,
       declared to the gate as `boundedIO.kernelPath`. This closed a real deadlock:
       `ProjectIdentity` attached a stderr pipe it never drained, so a `git` call with
       more than ~64 KB of stderr would hang the caller rather than fail it.
-- [x] Gate clean at 0 errors / 0 warnings against quality-gate 3.1.0, with the
-      institutional consistency score back to 1.00 (it had fallen to 0.00).
+- [x] Gate clean at 0 errors / 0 warnings against quality-gate 3.1.2, with the
+      institutional consistency score at 1.00 (it had fallen to 0.00).
+- [x] **Containment on every corpus read.** The pulse readers were the last ones taking
+      a path by interpolation without it; they now resolve and component-check like the
+      rest. See *Priorities* for what this class of defect still costs.
 
 **Priorities**
 
@@ -135,6 +173,18 @@ should surface it rather than discard it. Bump a producer only in step with its 
    the consumers do with it, a skipped artifact should reach a human somewhere.
 3. Keep the subprocess kernel the only spawn site; the gate now enforces this, so the
    work is to resist adding a second one rather than to detect it.
+4. **Absorbed code needs the same audit the format got.** The 2026-09-19 pass found two
+   defects the three absorption commits carried in, neither visible from a passing local
+   build: `CorpusReader`'s pulse readers interpolated a path with no containment — the one
+   reader class the 1.17.0 security fix missed — and eight test files still imported the
+   retired `IJSSensor`, compiling only against stale `.build` artifacts that re-exported
+   `CorpusKit`. A clean checkout would not have built. Moving a module does not re-run the
+   reasoning that hardened its destination; assume the next absorption arrives with the
+   same gaps and check for them deliberately.
+5. **Run the gate to completion when absorbing.** Both defects above sat behind a `safety`
+   failure that stopped the run at checker 3 of 45, so 26 checkers never executed and
+   reported nothing — which reads identically to reporting no findings. `--continue-on-failure`
+   is the difference between "clean" and "unexamined".
 
 ## Quality Standards
 
@@ -144,10 +194,19 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-08-25 — reconciled against quality-gate 3.1.0: recorded the
-`ProcessRunner` kernel and the deadlock it closed, added the `CorpusKit` target entry
-the status checker had been asking for, and closed both open-question markers under
-*Stability* — per-type version table (no package-wide scalar exists), a permanent v1
-floor with migration as the only way it moves, and the producer/consumer skew hazard
-the asymmetric policy creates. Priorities now name the two gaps that keep that floor
-from being enforceable: missing v1 fixtures and an unconsumed `.skippedNewer`.
+**Last Updated:** 2026-09-19 — reconciled against quality-gate 3.1.2 after the
+1.17.0–1.18.0 absorption, which had shipped without touching this document. Added *The
+reading layer* and the four absorbed targets the `status` checker had been asking for
+(`IJSAggregator`, `IJSPolicyDiscovery`, `IJSDashboardCore`, `JudgmentWorkbench`), refreshed
+the file counts (47/54 → 64/81) and the gate version, and stated where the absorption moved
+the *Boundaries* line rather than leaving a claim the source tree contradicts. Priorities 4
+and 5 record what the pass cost: two defects carried in by the absorption, both hidden
+behind a gate run that stopped at checker 3 of 45.
+
+**Prior — 2026-08-25:** reconciled against quality-gate 3.1.0: recorded the `ProcessRunner`
+kernel and the deadlock it closed, added the `CorpusKit` target entry the status checker had
+been asking for, and closed both open-question markers under *Stability* — per-type version
+table (no package-wide scalar exists), a permanent v1 floor with migration as the only way it
+moves, and the producer/consumer skew hazard the asymmetric policy creates. Priorities named
+the two gaps that keep that floor from being enforceable: missing v1 fixtures and an
+unconsumed `.skippedNewer`.

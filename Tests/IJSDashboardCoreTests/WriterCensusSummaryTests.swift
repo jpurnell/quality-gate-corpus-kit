@@ -36,7 +36,7 @@ struct WriterCensusSummaryTests {
             projectID: "test",
             from: [
                 makeRun(owner: "jpurnell", host: "studio.local", daysAgo: 1),
-                makeRun(owner: "jpurnell", host: "roseclub.local", daysAgo: 2),
+                makeRun(owner: "jpurnell", host: "builder-01.local", daysAgo: 2),
             ],
             censusDate: base)
         let census = summary.writerCensus

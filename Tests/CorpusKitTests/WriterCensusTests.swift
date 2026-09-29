@@ -53,7 +53,7 @@ struct WriterCensusTests {
     func twoMachinesOnePersonQuiet() {
         let census = WriterCensus.census(of: [
             makeMeta(owner: "jpurnell", host: "studio.local", daysAgo: 1, now: now),
-            makeMeta(owner: "jpurnell", host: "roseclub.local", daysAgo: 2, now: now),
+            makeMeta(owner: "jpurnell", host: "builder-01.local", daysAgo: 2, now: now),
         ], now: now)
         #expect(census.tripped == false)
         #expect(census.persons == ["jpurnell"])

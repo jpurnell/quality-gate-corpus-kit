@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 /// One spooled write, serialized to disk while the upstream is unreachable
 /// (Phase 3a §8).

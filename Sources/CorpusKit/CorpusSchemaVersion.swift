@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 /// A corpus artifact that carries its schema version (Phase 0.5).
 ///

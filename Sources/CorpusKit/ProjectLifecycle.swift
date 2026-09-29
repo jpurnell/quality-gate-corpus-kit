@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 import Yams
 
 /// The lifecycle state of a project within the corpus.

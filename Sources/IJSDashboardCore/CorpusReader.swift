@@ -2,9 +2,7 @@ import Foundation
 import CorpusKit
 import IJSAggregator
 
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 /// Reads quality gate telemetry from a corpus directory.
 ///

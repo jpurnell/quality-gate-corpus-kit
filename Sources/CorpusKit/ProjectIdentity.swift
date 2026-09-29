@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 /// A stable project identity for corpus telemetry (Phase 0.4, retires L4).
 ///

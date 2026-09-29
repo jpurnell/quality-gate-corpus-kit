@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 private let logger = Logger(subsystem: "com.ijs.core", category: "process-runner")
 

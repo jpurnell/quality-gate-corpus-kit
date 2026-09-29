@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(os)
-import os
-#endif
+import QualityGateLogging
 
 /// Writes and reads IJS telemetry artifacts as JSON files in the corpus.
 ///

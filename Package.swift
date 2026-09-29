@@ -16,7 +16,7 @@ let package = Package(
         // 1.5.0, not 1.1.0: the absorbed IJS layer uses `Diagnostic.isViolation`, which
         // arrived after 1.1.x. The old floor resolved to 1.1.1 through Package.resolved and
         // compiled only because nothing here needed the newer surface.
-        .package(url: "https://github.com/jpurnell/quality-gate-types.git", from: "1.5.0"),
+        .package(url: "https://github.com/jpurnell/quality-gate-types.git", from: "1.7.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
     ],
@@ -25,6 +25,7 @@ let package = Package(
             name: "CorpusKit",
             dependencies: [
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
+                .product(name: "QualityGateLogging", package: "quality-gate-types"),
                 .product(name: "Yams", package: "Yams"),
             ],
             // Declared as a resource, not excluded. `exclude:` silences SwiftPM's
@@ -69,6 +70,7 @@ let package = Package(
             dependencies: [
                 "IJSAggregator", "CorpusKit",
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
+                .product(name: "QualityGateLogging", package: "quality-gate-types"),
             ]
         ),
         .target(
@@ -80,6 +82,7 @@ let package = Package(
                 // build to discover.
                 "IJSAggregator", "CorpusKit",
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
+                .product(name: "QualityGateLogging", package: "quality-gate-types"),
             ]
         ),
         // Moved from quality-gate-swift 2026-09-18. It declared a dependency on
@@ -93,6 +96,7 @@ let package = Package(
             dependencies: [
                 "CorpusKit",
                 .product(name: "QualityGateTypes", package: "quality-gate-types"),
+                .product(name: "QualityGateLogging", package: "quality-gate-types"),
             ]
         ),
         .testTarget(name: "IJSAggregatorTests", dependencies: ["IJSAggregator"]),

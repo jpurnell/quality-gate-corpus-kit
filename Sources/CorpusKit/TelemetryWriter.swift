@@ -137,9 +137,9 @@ public actor TelemetryWriter {
         let dailyDirs = contents
             .filter { url in
                 let resolved = url.resolvingSymlinksInPath()
-                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                guard CorpusPath.contains(resolved.path, within: baseURL.path) else { return false }
                 var isDir: ObjCBool = false
-                // SAFETY: Path validated against base via hasPrefix above
+                // SAFETY: Path validated against base via CorpusPath.contains above
                 return FileManager.default.fileExists(
                     atPath: resolved.path, isDirectory: &isDir
                 ) && isDir.boolValue
@@ -179,9 +179,9 @@ public actor TelemetryWriter {
         return contents
             .filter { url in
                 let resolved = url.resolvingSymlinksInPath()
-                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                guard CorpusPath.contains(resolved.path, within: baseURL.path) else { return false }
                 var isDir: ObjCBool = false
-                // SAFETY: Path validated against base via hasPrefix above
+                // SAFETY: Path validated against base via CorpusPath.contains above
                 return FileManager.default.fileExists(
                     atPath: resolved.path, isDirectory: &isDir
                 ) && isDir.boolValue
@@ -203,7 +203,7 @@ public actor TelemetryWriter {
         let baseURL = URL(fileURLWithPath: basePath)
             .standardized.resolvingSymlinksInPath()
 
-        guard fileURL.path.hasPrefix(baseURL.path) else {
+        guard CorpusPath.contains(fileURL.path, within: baseURL.path) else {
             throw IJSError.telemetryReadFailed(
                 reason: "Manifest path escapes corpus base"
             )
@@ -323,9 +323,9 @@ public actor TelemetryWriter {
         let labelDirs = contents
             .filter { url in
                 let resolved = url.resolvingSymlinksInPath()
-                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                guard CorpusPath.contains(resolved.path, within: baseURL.path) else { return false }
                 var isDir: ObjCBool = false
-                // SAFETY: Path validated against base via hasPrefix above
+                // SAFETY: Path validated against base via CorpusPath.contains above
                 return FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDir) && isDir.boolValue
             }
             .sorted { lhs, rhs in
@@ -350,8 +350,8 @@ public actor TelemetryWriter {
             if let limit = beforeWeek, dirLabel >= limit { continue }
             let filePath = corpusPath.pulsePath(weekLabel: dirLabel)
             let fileURL = URL(fileURLWithPath: filePath).standardized.resolvingSymlinksInPath()
-            guard fileURL.path.hasPrefix(baseURL.path) else { continue }
-            // SAFETY: Path validated against base via hasPrefix above
+            guard CorpusPath.contains(fileURL.path, within: baseURL.path) else { continue }
+            // SAFETY: Path validated against base via CorpusPath.contains above
             guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
 
             do {
@@ -472,7 +472,7 @@ public actor TelemetryWriter {
         return try files
             .filter { url in
                 let resolved = url.resolvingSymlinksInPath()
-                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                guard CorpusPath.contains(resolved.path, within: baseURL.path) else { return false }
                 let name = url.deletingPathExtension().lastPathComponent
                 return name >= startDay && name <= endDay
             }
@@ -764,9 +764,9 @@ public actor TelemetryWriter {
             }
             .filter { url in
                 let resolved = url.resolvingSymlinksInPath()
-                guard resolved.path.hasPrefix(baseURL.path) else { return false }
+                guard CorpusPath.contains(resolved.path, within: baseURL.path) else { return false }
                 var isDir: ObjCBool = false
-                // SAFETY: Path validated against base via hasPrefix above
+                // SAFETY: Path validated against base via CorpusPath.contains above
                 return FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDir) && isDir.boolValue
             }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }

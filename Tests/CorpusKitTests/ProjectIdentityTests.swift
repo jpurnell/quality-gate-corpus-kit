@@ -22,7 +22,7 @@ struct ProjectIdentityTests {
         ("https://github.com/jpurnell/quality-gate-swift.git", "jpurnell__quality-gate-swift"),
         ("https://github.com/jpurnell/quality-gate-swift", "jpurnell__quality-gate-swift"),
         ("https://github.com/jpurnell/quality-gate-swift/", "jpurnell__quality-gate-swift"),
-        // SAFETY: Fixture string, never fetched — this case exists to pin down that a plaintext-HTTP remote still normalizes correctly [CWE-319].
+        // SECURITY: Fixture string, never fetched — this case exists to pin down that a plaintext-HTTP remote still normalizes correctly [CWE-319].
         ("http://git.internal.example.com/org/repo.git", "org__repo"),
     ])
     func normalizesHTTPS(url: String, slug: String) throws {

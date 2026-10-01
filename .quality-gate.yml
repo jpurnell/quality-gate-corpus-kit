@@ -25,3 +25,12 @@ status:
 # old rules; without this pin nothing says so. Ratchet on each deploy that the
 # repo depends on. Warns on every run; fails only under --strict.
 minimumGateVersion: "2026-08-26"
+
+security:
+  # Containment checks the gate should recognise as sound for security.path-traversal.
+  # CorpusPath.contains compares whole path components; requireSingleComponent refuses a
+  # separator outright. CorpusReader takes project ids from ijs-mcp-server tool calls.
+  containmentCheckers:
+    - CorpusPath.contains
+    - CorpusPath.requireSingleComponent
+

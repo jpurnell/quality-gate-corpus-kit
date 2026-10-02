@@ -5,6 +5,23 @@ All notable changes to quality-gate-corpus-kit are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A project linked in from beside the corpus was discovered as one of its own.**
+  `TelemetryWriter`'s seven directory filters resolve each entry's links and kept it if
+  `resolved.path.hasPrefix(base.path)`. A link to `…/corpus-other/x` begins with `…/corpus`, so
+  `discoverProjects` listed it and the readers read it. They use `CorpusPath.contains`, the
+  component comparison this package already had, and a test pins the sibling-link case.
+
+### Changed
+
+- `.quality-gate.yml` names `CorpusPath.contains` and `CorpusPath.requireSingleComponent` as
+  containment checkers, so the next gate's `security.path-traversal` recognises
+  `CorpusReader`'s guard on tool-supplied project ids. One fixture's acknowledgement moves from
+  `// SAFETY:` to `// SECURITY:`; the next gate keeps the two markers apart.
+
 ## [1.19.1] — 2026-09-19
 
 ### Fixed

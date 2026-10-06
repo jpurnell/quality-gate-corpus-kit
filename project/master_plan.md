@@ -156,6 +156,11 @@ should surface it rather than discard it. Bump a producer only in step with its 
       more than ~64 KB of stderr would hang the caller rather than fail it.
 - [x] Gate clean at 0 errors / 0 warnings against quality-gate 3.1.2, with the
       institutional consistency score at 1.00 (it had fallen to 0.00).
+- [x] **A history read that does not hold the history.** `CorpusReader.loadHistory(for:)`
+      (1.21.0) decodes runs without their diagnostics and reads findings only for the
+      present state. It exists because a consumer was hurt: the dashboard's `loadAll()`
+      peaked at 11.9 GB against a 3.16 GB corpus. `loadRuns` and `loadAll` still load
+      everything, and say so.
 - [x] **Containment on every corpus read.** The pulse readers were the last ones taking
       a path by interpolation without it; they now resolve and component-check like the
       rest. See *Priorities* for what this class of defect still costs.
@@ -186,6 +191,14 @@ should surface it rather than discard it. Bump a producer only in step with its 
    reported nothing — which reads identically to reporting no findings. `--continue-on-failure`
    is the difference between "clean" and "unexamined".
 
+6. **A reader's cost is part of its contract.** Nothing here said what `loadAll()` costs,
+   and nothing measured it: the corpus grew to 3.16 GB under a reader that was written when
+   it was a few megabytes, and the first report was a machine out of memory. `loadHistory`
+   fixes the one consumer that was hurt. `ijs-mcp-server` and the gate's own terminal
+   dashboard still call `loadRuns`/`loadAll` and have not been measured against the real
+   corpus; until they are, "one project's full history fits in memory" is an assumption
+   with a known counterexample (quality-gate-swift: 2,554 runs, 1.4 GB).
+
 ## Quality Standards
 
 `coding_rules.md`, Swift 6 strict concurrency, zero warnings, DocC on every public type.
@@ -194,7 +207,9 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-09-19 — reconciled against quality-gate 3.1.2 after the
+**Last Updated:** 2026-10-06 — added `loadHistory` (1.21.0) to *What's Working* and
+priority 6, the unmeasured readers it leaves behind. Also recorded 1.20.0 in the CHANGELOG,
+which had been tagged without an entry. Previously: 2026-09-19 — reconciled against quality-gate 3.1.2 after the
 1.17.0–1.18.0 absorption, which had shipped without touching this document. Added *The
 reading layer* and the four absorbed targets the `status` checker had been asking for
 (`IJSAggregator`, `IJSPolicyDiscovery`, `IJSDashboardCore`, `JudgmentWorkbench`), refreshed

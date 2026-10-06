@@ -29,7 +29,7 @@ public struct ConsistencyScorer: Sendable {
         let totalDeduction = findings.reduce(0.0) { total, finding in
             total + deduction(for: finding)
         }
-        return max(0.0, min(1.0, 1.0 - totalDeduction))
+        return score(deducting: totalDeduction)
     }
 
     /// Computes a consistency score, discounting by baseline validity.
@@ -40,8 +40,18 @@ public struct ConsistencyScorer: Sendable {
         let totalDeduction = findings.reduce(0.0) { total, finding in
             total + deduction(for: finding)
         }
-        let discounted = totalDeduction * validityMultiplier(for: baselineValidity)
-        return max(0.0, min(1.0, 1.0 - discounted))
+        return score(deducting: totalDeduction * validityMultiplier(for: baselineValidity))
+    }
+
+    /// `1 - deduction`, held to `[0, 1]`.
+    ///
+    /// A deduction that is not a number — which only a NaN weight can produce — scores `0.0`.
+    /// The clamp alone would have answered `1.0`, because `min` returns its first argument
+    /// when either is a NaN: a scorer that could not compute a score reported an institution
+    /// with nothing to fix. Zero is the answer that gets looked at.
+    private func score(deducting deduction: Double) -> Double {
+        guard !deduction.isNaN else { return 0.0 }
+        return max(0.0, min(1.0, 1.0 - deduction))
     }
 
     private func deduction(for finding: ConsistencyFinding) -> Double {

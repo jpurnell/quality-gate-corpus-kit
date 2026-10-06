@@ -1,6 +1,7 @@
 import Foundation
 import CorpusKit
 import IJSAggregator
+import QualityGateTypes
 
 import QualityGateLogging
 
@@ -32,7 +33,90 @@ public struct CorpusReader: Sendable {
     }
 
     /// Loads all runs for a project, sorted by timestamp.
+    ///
+    /// Every run is decoded in full, findings included, and all of them are held at once. For a
+    /// project with a long history that is gigabytes; a reader that wants summaries, trends or
+    /// the latest findings should call ``loadHistory(for:)`` instead.
     public func loadRuns(for project: String) throws -> [TimestampedRun] {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var runs: [TimestampedRun] = []
+        for filePath in try metadataFilePaths(for: project) {
+            Self.withTransientMemoryReleased {
+                guard let data = FileManager.default.contents(atPath: filePath) else { return } // SAFETY: path from metadataFilePaths, contained in the corpus
+                do {
+                    let metadata = try decoder.decode(CheckResultMetadata.self, from: data)
+                    runs.append(TimestampedRun(metadata: metadata))
+                } catch {
+                    Self.logger.warning("Skipping malformed JSON at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        return runs.sorted { $0.metadata.timestamp < $1.metadata.timestamp }
+    }
+
+    /// Loads a project's history without holding every finding it ever recorded.
+    ///
+    /// Each run file is decoded as a ``RunOutline`` — statuses, scopes and timestamps, no
+    /// diagnostics — one file at a time. Only the files that hold a checker's most recent
+    /// standard-mode result are then read in full, which is usually the last full run and a
+    /// handful of targeted re-runs. Peak memory is one run file, not the project's history.
+    ///
+    /// - Parameter project: The project identifier; must be a single path component.
+    /// - Returns: The outline runs and the composed latest results (see ``ProjectHistory``).
+    /// - Throws: When `project` is not a single path component or escapes the corpus, or when
+    ///   a telemetry directory cannot be listed.
+    public func loadHistory(for project: String) throws -> ProjectHistory {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var outlines: [(run: TimestampedRun, filePath: String)] = []
+        for filePath in try metadataFilePaths(for: project) {
+            Self.withTransientMemoryReleased {
+                guard let data = FileManager.default.contents(atPath: filePath) else { return } // SAFETY: path from metadataFilePaths, contained in the corpus
+                do {
+                    let outline = try decoder.decode(RunOutline.self, from: data)
+                    outlines.append((TimestampedRun(metadata: outline.metadata), filePath))
+                } catch {
+                    Self.logger.warning("Skipping malformed JSON at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        outlines.sort { $0.run.metadata.timestamp < $1.run.metadata.timestamp }
+
+        // The same fold as `TimestampedRun.latestStandardResults(of:)` — standard runs, oldest
+        // to newest, later overwriting earlier — but recording *where* each checker's latest
+        // result lives rather than the result itself, which the outline does not have.
+        var fileHoldingLatest: [String: String] = [:]
+        for outline in outlines where outline.run.metadata.gateMode == .standard {
+            for result in outline.run.metadata.results {
+                fileHoldingLatest[result.checkerId] = outline.filePath
+            }
+        }
+
+        var latestForChecker: [String: CheckResult] = [:]
+        for filePath in Set(fileHoldingLatest.values) {
+            Self.withTransientMemoryReleased {
+                guard let data = FileManager.default.contents(atPath: filePath) else { return } // SAFETY: path from metadataFilePaths, contained in the corpus
+                do {
+                    let metadata = try decoder.decode(CheckResultMetadata.self, from: data)
+                    for result in metadata.results where fileHoldingLatest[result.checkerId] == filePath {
+                        latestForChecker[result.checkerId] = result
+                    }
+                } catch {
+                    Self.logger.warning("Could not re-read \(filePath, privacy: .public) for its findings; its checkers are missing from the latest results: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        return ProjectHistory(runs: outlines.map(\.run),
+                              latestStandardResults: Array(latestForChecker.values))
+    }
+
+    /// Every `*_metadata.json` path recorded for a project, after the project id is validated.
+    private func metadataFilePaths(for project: String) throws -> [String] {
         // `project` is untrusted. The comment here used to say "project from discoverProjects",
         // which was true when the only caller listed the directory itself — and false once
         // ijs-mcp-server began passing `project_id` straight from a tool call. A crafted value
@@ -48,10 +132,7 @@ public struct CorpusReader: Sendable {
         let fm = FileManager.default
         guard fm.fileExists(atPath: projectPath) else { return [] } // SAFETY: contained, read-only
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        var runs: [TimestampedRun] = []
+        var paths: [String] = []
         let dateDirs = try fm.contentsOfDirectory(atPath: projectPath) // SAFETY: reads configured corpus subdirectory
         for dateDir in dateDirs {
             let datePath = "\(projectPath)/\(dateDir)" // SAFETY: child of configured corpus path
@@ -60,19 +141,23 @@ public struct CorpusReader: Sendable {
 
             let files = try fm.contentsOfDirectory(atPath: datePath) // SAFETY: reads date subdirectory of corpus
             for file in files where file.hasSuffix("_metadata.json") {
-                let filePath = "\(datePath)/\(file)" // SAFETY: child of configured corpus path
-                guard let data = fm.contents(atPath: filePath) else { continue } // SAFETY: reads JSON from corpus
-                do {
-                    let metadata = try decoder.decode(CheckResultMetadata.self, from: data)
-                    runs.append(TimestampedRun(metadata: metadata))
-                } catch {
-                    Self.logger.warning("Skipping malformed JSON at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                    continue
-                }
+                paths.append("\(datePath)/\(file)") // SAFETY: child of configured corpus path
             }
         }
+        return paths
+    }
 
-        return runs.sorted { $0.metadata.timestamp < $1.metadata.timestamp }
+    /// Runs `body`, then releases what it left behind for the autorelease pool.
+    ///
+    /// Reading a file hands back autoreleased storage on Darwin. A loop over twenty thousand
+    /// run files with no pool keeps every one of them alive until the caller's pool drains,
+    /// which for a detached task is whenever the thread next goes idle.
+    private static func withTransientMemoryReleased(_ body: () -> Void) {
+        #if canImport(ObjectiveC)
+        autoreleasepool(invoking: body)
+        #else
+        body()
+        #endif
     }
 
     /// Loads all projects and their runs.

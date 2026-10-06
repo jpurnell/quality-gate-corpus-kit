@@ -280,13 +280,27 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
 
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
     public init(from decoder: Decoder) throws {
+        try self.init(from: decoder, omittingDiagnostics: false)
+    }
+
+    /// The one decoder, shared with ``RunOutline`` so the two readings of a run file cannot
+    /// drift: every field is decoded the same way, and only `results` differs.
+    ///
+    /// - Parameters:
+    ///   - decoder: The decoder to read from.
+    ///   - omittingDiagnostics: When true, each result is decoded without its diagnostics.
+    init(from decoder: Decoder, omittingDiagnostics: Bool) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         projectID = try container.decode(String.self, forKey: .projectID)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         environment = try container.decode(Environment.self, forKey: .environment)
         decisionOwner = try container.decode(String.self, forKey: .decisionOwner)
-        results = try container.decode([CheckResult].self, forKey: .results)
+        if omittingDiagnostics {
+            results = try container.decode([ResultOutline].self, forKey: .results).map(\.result)
+        } else {
+            results = try container.decode([CheckResult].self, forKey: .results)
+        }
         overrides = try container.decode([OverrideRecord].self, forKey: .overrides)
         riskTier = try container.decode(RiskTier.self, forKey: .riskTier)
         ethicalFlags = try container.decode([EthicalFlag].self, forKey: .ethicalFlags)

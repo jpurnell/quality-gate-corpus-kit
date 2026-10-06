@@ -229,4 +229,27 @@ struct ConsistencyScorerTests {
         let score = scorer.score(findings: findings)
         #expect(abs(score - 0.65) < 1e-6)
     }
+
+    // MARK: - A score that cannot be computed
+
+    @Test("A weight that is not a number scores zero, never fully consistent")
+    func nanWeightIsNotAPerfectScore() {
+        // `max(0, min(1, 1 - .nan))` is 1.0: `min` returns its first argument when either is
+        // a NaN. A misconfigured weight used to read as an institution with nothing to fix.
+        let scorer = ConsistencyScorer(weights: ScorerWeights(
+            clusterMatch: .nan, anomalyPattern: 0.10, unaddressedPolicy: 0.05, recurrenceBonus: 0.10))
+        let findings = [makeFinding(matchType: .clusterMatch)]
+
+        #expect(scorer.score(findings: findings).isEqual(to: 0.0))
+        #expect(scorer.score(findings: findings, baselineValidity: .valid).isEqual(to: 0.0))
+    }
+
+    @Test("A NaN weight no finding uses does not disturb the score")
+    func unusedNaNWeightIsHarmless() {
+        let scorer = ConsistencyScorer(weights: ScorerWeights(
+            clusterMatch: .nan, anomalyPattern: 0.10, unaddressedPolicy: 0.05, recurrenceBonus: 0.10))
+
+        #expect(scorer.score(findings: []).isEqual(to: 1.0))
+        #expect(abs(scorer.score(findings: [makeFinding(matchType: .anomalyPattern)]) - 0.90) < 1e-9)
+    }
 }

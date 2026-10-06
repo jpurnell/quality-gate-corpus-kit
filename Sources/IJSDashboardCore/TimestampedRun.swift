@@ -42,3 +42,21 @@ extension TimestampedRun {
         return Array(latestForChecker.values)
     }
 }
+
+/// A project's run history, loaded without every finding it ever recorded.
+///
+/// What ``CorpusReader/loadHistory(for:)`` returns: enough to compute summaries and trends
+/// over the whole history, and the full findings for the present state only.
+public struct ProjectHistory: Sendable {
+    /// Every run, ascending by timestamp, with each result's `diagnostics` empty.
+    public let runs: [TimestampedRun]
+    /// Each checker's most recent standard-mode result, diagnostics included — the same value
+    /// as ``TimestampedRun/latestStandardResults(of:)`` over the fully loaded runs.
+    public let latestStandardResults: [CheckResult]
+
+    /// Creates a history from outline runs and the composed latest results.
+    public init(runs: [TimestampedRun], latestStandardResults: [CheckResult]) {
+        self.runs = runs
+        self.latestStandardResults = latestStandardResults
+    }
+}

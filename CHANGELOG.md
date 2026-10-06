@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] — 2026-10-06
+
+### Added
+
+- **`CorpusReader.loadHistory(for:)` — a project's history without every finding it ever
+  recorded.** Diagnostics are 99.8% of a large run file (8.67 MB of 8.69 MB in one
+  BusinessMath run, most of it one duplication sweep) and almost none of what a history
+  reader computes: pass rates, trends, the writer census and the baseline burn-down read
+  statuses, scopes and timestamps. `loadHistory` decodes each run as a `RunOutline` — the
+  same `CheckResultMetadata`, every result's `diagnostics` empty — one file at a time, then
+  reads in full only the files holding a checker's most recent standard-mode result. It
+  returns a `ProjectHistory`: the outline runs, and `latestStandardResults` equal to
+  `TimestampedRun.latestStandardResults(of:)` over the fully loaded runs.
+
+  The reason is measured. quality-gate-dashboard called `loadAll()`, which holds every run
+  of every project at once: 20,740 files and 3.16 GB of JSON peaked at 11.9 GB of process
+  memory, and left 4.4 GB of it unreturned to the system after the data was freed. Through
+  `loadHistory`, one project at a time, the same corpus peaks at 124 MB.
+- `RunOutline` (CorpusKit) — the decodable behind it. It is not a second schema: it decodes
+  through `CheckResultMetadata`'s own initializer, so a field added there is read here too,
+  and a test pins outline == full run minus diagnostics.
+
+### Fixed
+
+- **A consistency score that could not be computed read as a perfect one.**
+  `ConsistencyScorer` clamped with `max(0.0, min(1.0, 1.0 - deduction))`, and `min` returns
+  its first argument when either is a NaN — so a NaN weight scored `1.0`, an institution with
+  nothing to fix. It scores `0.0` now, and only when a finding actually uses that weight.
+  Found by the gate's `fallback.clamp-absorbs-nan`.
+
+### Changed
+
+- `CorpusReader.loadRuns(for:)` drains an autorelease pool per file. Reading a file returns
+  autoreleased storage on Darwin, and the loop kept every file's bytes alive until the
+  caller's pool drained. Its documentation now says what it costs and points at
+  `loadHistory`. Behaviour is otherwise unchanged; `loadAll()` is unchanged.
+
 ### Fixed
 
 - **A project linked in from beside the corpus was discovered as one of its own.**
@@ -21,6 +58,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   containment checkers, so the next gate's `security.path-traversal` recognises
   `CorpusReader`'s guard on tool-supplied project ids. One fixture's acknowledgement moves from
   `// SAFETY:` to `// SECURITY:`; the next gate keeps the two markers apart.
+
+## [1.20.0] — 2026-09-29
+
+*Recorded on 2026-10-06, from the commit: this release was tagged without an entry here.*
+
+### Changed
+
+- `Logger` is reached through `QualityGateLogging` rather than `import os` behind a
+  `canImport(os)` guard that covered only the import. Nine files used `Logger` unguarded and
+  did not build on Linux. quality-gate-types moves to 1.7.0 for it.
+- MIT `LICENSE` added ahead of publication.
 
 ## [1.19.1] — 2026-09-19
 

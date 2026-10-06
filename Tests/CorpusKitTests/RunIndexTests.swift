@@ -33,6 +33,22 @@ struct RunIndexTests {
         #expect(entry.bytes == runFileBytes)
     }
 
+    @Test("A checker with no diagnostics has no entry in the counts — absent means zero")
+    func zeroCountsOmitted() async throws {
+        let corpus = try TempCorpus()
+        defer { corpus.remove() }
+        try await TelemetryWriter().write(metadata: run(second: 0, notes: 0), calibrations: [], to: corpus.path)
+
+        let entry = try #require(RunIndex.read(at: corpus.indexURL).entries.first)
+        #expect(entry.counts.isEmpty)
+        #expect(entry.diagnosticCounts(for: "legibility") == DiagnosticCounts(errors: 0, warnings: 0, notes: 0))
+
+        // And a rebuild agrees with the writer about it.
+        try FileManager.default.removeItem(at: corpus.indexURL)
+        _ = try await TelemetryWriter().rebuildIndex(for: corpus.path)
+        #expect(RunIndex.read(at: corpus.indexURL).entries.first?.counts.isEmpty == true)
+    }
+
     @Test("A second run appends a second line and leaves the first as it was")
     func secondWriteAppends() async throws {
         let corpus = try TempCorpus()

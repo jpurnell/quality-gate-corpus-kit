@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.1] — 2026-10-06
+
+### Changed
+
+- **An index line no longer lists the checkers that found nothing.** `RunIndexEntry.counts` held
+  an entry for every checker in the run, and most checkers in most runs record no diagnostics —
+  so a third of each line was `{"errors":0,"notes":0,"warnings":0}`, forty times. Only non-zero
+  counts are written; `RunIndexEntry.diagnosticCounts(for:)` answers zero for the rest. Caught
+  on the first trial backfill, before any index had been written to the corpus.
+
 ## [1.22.0] — 2026-10-06
 
 ### Added

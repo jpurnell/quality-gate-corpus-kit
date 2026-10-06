@@ -28,6 +28,9 @@ public struct DiagnosticCounts: Sendable, Codable, Equatable {
         self.notes = notes
     }
 
+    /// A checker that recorded nothing.
+    public static let zero = DiagnosticCounts(errors: 0, warnings: 0, notes: 0)
+
     /// Counts a result's diagnostics by severity.
     public init(of diagnostics: [Diagnostic]) {
         var errors = 0, warnings = 0, notes = 0
@@ -62,14 +65,24 @@ public struct RunIndexEntry: VersionedCorpusArtifact, Equatable {
     /// The run's metadata with every result's `diagnostics` empty.
     public let run: CheckResultMetadata
     /// Diagnostic counts per checker id, standing in for the diagnostics `run` omits.
+    ///
+    /// Only checkers that recorded something appear. Most checkers in most runs record
+    /// nothing, and writing forty zeroes a line made the counts a third of the index. Read
+    /// through ``diagnosticCounts(for:)``, which answers zero for a checker that is absent.
     public let counts: [String: DiagnosticCounts]
+
+    /// The diagnostic counts for one checker in this run — zero when it recorded none.
+    public func diagnosticCounts(for checkerId: String) -> DiagnosticCounts {
+        counts[checkerId] ?? .zero
+    }
 
     /// Creates an entry for a run. `run` is stored without its diagnostics, which are counted
     /// into ``counts`` first.
     public init(file: String, bytes: Int, run: CheckResultMetadata) {
         var counts: [String: DiagnosticCounts] = [:]
         for result in run.results {
-            counts[result.checkerId] = DiagnosticCounts(of: result.diagnostics)
+            let count = DiagnosticCounts(of: result.diagnostics)
+            counts[result.checkerId] = count == .zero ? nil : count
         }
         self.init(file: file, bytes: bytes,
                   outline: CheckResultMetadata(strippingDiagnosticsFrom: run), counts: counts)
@@ -134,7 +147,8 @@ struct RunDigest: Decodable {
                 case .note: notes += 1
                 }
             }
-            counts[result.checkerId] = DiagnosticCounts(errors: errors, warnings: warnings, notes: notes)
+            let count = DiagnosticCounts(errors: errors, warnings: warnings, notes: notes)
+            counts[result.checkerId] = count == .zero ? nil : count
         }
         self.counts = counts
     }

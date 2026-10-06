@@ -72,19 +72,7 @@ public struct CorpusReader: Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        var outlines: [(run: TimestampedRun, filePath: String)] = []
-        for filePath in try metadataFilePaths(for: project) {
-            Self.withTransientMemoryReleased {
-                guard let data = FileManager.default.contents(atPath: filePath) else { return } // SAFETY: path from metadataFilePaths, contained in the corpus
-                do {
-                    let outline = try decoder.decode(RunOutline.self, from: data)
-                    outlines.append((TimestampedRun(metadata: outline.metadata), filePath))
-                } catch {
-                    Self.logger.warning("Skipping malformed JSON at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        }
-        outlines.sort { $0.run.metadata.timestamp < $1.run.metadata.timestamp }
+        let outlines = try outlines(for: project, decoder: decoder)
 
         // The same fold as `TimestampedRun.latestStandardResults(of:)` — standard runs, oldest
         // to newest, later overwriting earlier — but recording *where* each checker's latest
@@ -113,6 +101,129 @@ public struct CorpusReader: Sendable {
 
         return ProjectHistory(runs: outlines.map(\.run),
                               latestStandardResults: Array(latestForChecker.values))
+    }
+
+    /// Every run of a project as an outline, ascending by timestamp, with the file it is in.
+    ///
+    /// Reads the project's run index where there is one and reconciles it against the run
+    /// files actually present, because an index that is trusted blindly is a cache that can
+    /// lie. The files on disk decide which runs exist:
+    ///
+    /// - a run file with no line — written by a gate older than the index, arrived by `git
+    ///   pull`, or orphaned by a failed append — is read for its outline, as every run was
+    ///   before the index existed;
+    /// - a line naming a file that is not there is dropped. That is also the containment
+    ///   check: a `file` value is corpus content, and only paths this reader listed itself are
+    ///   ever opened;
+    /// - of several lines for one file, the last wins — a union merge leaves duplicates.
+    ///
+    /// The reader never writes. Repairing the index is `TelemetryWriter.rebuildIndex(for:)`.
+    private func outlines(
+        for project: String, decoder: JSONDecoder
+    ) throws -> [(run: TimestampedRun, filePath: String)] {
+        let filePaths = try metadataFilePaths(for: project)
+        var pathForKey: [String: String] = [:]
+        for filePath in filePaths {
+            pathForKey[Self.indexKey(forRunFileAt: filePath)] = filePath
+        }
+
+        let indexURL = URL(fileURLWithPath: "\(corpusPath)/telemetry/\(project)/\(RunIndex.fileName)") // SAFETY: project validated by metadataFilePaths above; fixed file name
+        var indexed: [String: CheckResultMetadata] = [:]
+        var staleLines = 0
+        for entry in RunIndex.read(at: indexURL).entries {
+            if pathForKey[entry.file] != nil {
+                indexed[entry.file] = entry.run
+            } else {
+                staleLines += 1
+            }
+        }
+
+        var outlines: [(run: TimestampedRun, filePath: String)] = []
+        outlines.reserveCapacity(filePaths.count)
+        var unindexed = 0
+        for (key, filePath) in pathForKey {
+            if let run = indexed[key] {
+                outlines.append((TimestampedRun(metadata: run), filePath))
+                continue
+            }
+            unindexed += 1
+            Self.withTransientMemoryReleased {
+                guard let data = FileManager.default.contents(atPath: filePath) else { return } // SAFETY: path from metadataFilePaths, contained in the corpus
+                do {
+                    let outline = try decoder.decode(RunOutline.self, from: data)
+                    outlines.append((TimestampedRun(metadata: outline.metadata), filePath))
+                } catch {
+                    Self.logger.warning("Skipping malformed JSON at \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        if !indexed.isEmpty, unindexed > 0 || staleLines > 0 {
+            Self.logger.notice("Run index for \(project, privacy: .public) is out of step with its run files: \(unindexed, privacy: .public) unindexed run(s) read from their files, \(staleLines, privacy: .public) line(s) with no file dropped")
+        }
+        outlines.sort {
+            ($0.run.metadata.timestamp, $0.filePath) < ($1.run.metadata.timestamp, $1.filePath)
+        }
+        return outlines
+    }
+
+    /// A run file's key in the project's index: `YYYY-MM-DD/HHmmss_metadata.json`.
+    private static func indexKey(forRunFileAt filePath: String) -> String {
+        let url = URL(fileURLWithPath: filePath)
+        return "\(url.deletingLastPathComponent().lastPathComponent)/\(url.lastPathComponent)"
+    }
+
+    /// The most recent run of a project, complete with its findings.
+    ///
+    /// Finds the newest run by outline, then reads that one file in full. For a caller that
+    /// wants the present state — an audit of the latest run — this replaces loading a
+    /// project's whole history to take its last element.
+    ///
+    /// - Parameter project: The project identifier; must be a single path component.
+    /// - Returns: The latest run, or `nil` when the project has no readable runs.
+    /// - Throws: When `project` is not a single path component, a telemetry directory cannot
+    ///   be listed, or the latest run's file cannot be decoded.
+    public func loadLatestRun(for project: String) throws -> TimestampedRun? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let latest = try outlines(for: project, decoder: decoder).last else { return nil }
+        guard let data = FileManager.default.contents(atPath: latest.filePath) else { // SAFETY: path from metadataFilePaths, contained in the corpus
+            throw IJSError.telemetryReadFailed(reason: "Cannot read \(latest.filePath)")
+        }
+        do {
+            return TimestampedRun(metadata: try decoder.decode(CheckResultMetadata.self, from: data))
+        } catch {
+            throw IJSError.telemetryReadFailed(
+                reason: "Cannot decode \(latest.filePath): \(error.localizedDescription)")
+        }
+    }
+
+    /// A cheap answer to "has this project's history changed?".
+    ///
+    /// Lists the project's run files without opening or `stat`-ing any of them, and `stat`s
+    /// the index once. A run added through `TelemetryWriter` moves the index; a run that
+    /// arrived any other way still moves the count.
+    ///
+    /// - Parameter project: The project identifier; must be a single path component.
+    /// - Returns: The signature; equal signatures mean the same set of runs, as far as a
+    ///   listing can tell.
+    /// - Throws: When `project` is not a single path component or a directory cannot be listed.
+    public func historySignature(for project: String) throws -> HistorySignature {
+        let runFileCount = try metadataFilePaths(for: project).count
+        let indexPath = "\(corpusPath)/telemetry/\(project)/\(RunIndex.fileName)" // SAFETY: project validated by metadataFilePaths above; fixed file name
+        let attributes: [FileAttributeKey: Any]
+        do {
+            attributes = try FileManager.default.attributesOfItem(atPath: indexPath) // SAFETY: read-only stat of a contained path
+        } catch CocoaError.fileReadNoSuchFile {
+            Self.logger.debug("Project \(project, privacy: .public) has no run index; its signature is its run count")
+            return HistorySignature(runFileCount: runFileCount, indexBytes: nil, indexModified: nil)
+        } catch {
+            Self.logger.warning("Cannot stat the run index for \(project, privacy: .public); its signature tracks the run count only: \(error.localizedDescription, privacy: .public)")
+            return HistorySignature(runFileCount: runFileCount, indexBytes: nil, indexModified: nil)
+        }
+        return HistorySignature(
+            runFileCount: runFileCount,
+            indexBytes: (attributes[.size] as? NSNumber)?.intValue,
+            indexModified: attributes[.modificationDate] as? Date)
     }
 
     /// Every `*_metadata.json` path recorded for a project, after the project id is validated.

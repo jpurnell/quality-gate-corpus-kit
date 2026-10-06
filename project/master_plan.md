@@ -161,6 +161,10 @@ should surface it rather than discard it. Bump a producer only in step with its 
       present state. It exists because a consumer was hurt: the dashboard's `loadAll()`
       peaked at 11.9 GB against a 3.16 GB corpus. `loadRuns` and `loadAll` still load
       everything, and say so.
+- [x] **A run index.** `telemetry/<project>/index.jsonl` (1.22.0): one line per run, appended
+      by `TelemetryWriter`, reconciled by every reader against the run files and never trusted
+      over them. `loadHistory` reads it; `loadLatestRun` and `historySignature` are new. See
+      `project/plans/proposals/ARunIsOneLine.md` and `DRIFT.md` #11.
 - [x] **Containment on every corpus read.** The pulse readers were the last ones taking
       a path by interpolation without it; they now resolve and component-check like the
       rest. See *Priorities* for what this class of defect still costs.
@@ -207,7 +211,9 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-10-06 — added `loadHistory` (1.21.0) to *What's Working* and
+**Last Updated:** 2026-10-06 — added the run index (1.22.0) to *What's Working*; priority 6
+still stands for `listAvailableLabels` and `loadLatestOrientationReport`, which the index does
+not touch. Earlier the same day: added `loadHistory` (1.21.0) to *What's Working* and
 priority 6, the unmeasured readers it leaves behind. Also recorded 1.20.0 in the CHANGELOG,
 which had been tagged without an entry. Previously: 2026-09-19 — reconciled against quality-gate 3.1.2 after the
 1.17.0–1.18.0 absorption, which had shipped without touching this document. Added *The

@@ -37,6 +37,14 @@ public struct CorpusPath: Sendable, Equatable {
         "\(projectDirectory)/work-log.json"
     }
 
+    /// Run index path: `<projectDirectory>/index.jsonl`
+    ///
+    /// One line per run, appended when the run is written. Derived from the run files and
+    /// rebuildable from them — see ``RunIndexEntry``.
+    public var runIndexPath: String {
+        "\(projectDirectory)/\(RunIndex.fileName)"
+    }
+
     /// Metadata artifact path: `<dailyDir>/<HHmmss>_metadata.json`
     public func metadataPath(for timestamp: Date) -> String {
         "\(dailyDirectory(for: timestamp))/\(Self.timeFormatter.string(from: timestamp))_metadata.json"

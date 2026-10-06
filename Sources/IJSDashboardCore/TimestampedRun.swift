@@ -60,3 +60,24 @@ public struct ProjectHistory: Sendable {
         self.latestStandardResults = latestStandardResults
     }
 }
+
+/// The state of a project's history as far as change detection can tell without reading it.
+///
+/// What ``CorpusReader/historySignature(for:)`` returns. Two equal signatures mean the same
+/// set of runs: the count catches a run that arrived with no index line, and the index's size
+/// and time catch one that was written normally.
+public struct HistorySignature: Sendable, Equatable {
+    /// How many run files the project holds.
+    public let runFileCount: Int
+    /// The run index's size in bytes, or `nil` when the project has no index.
+    public let indexBytes: Int?
+    /// The run index's modification time, or `nil` when the project has no index.
+    public let indexModified: Date?
+
+    /// Creates a signature.
+    public init(runFileCount: Int, indexBytes: Int?, indexModified: Date?) {
+        self.runFileCount = runFileCount
+        self.indexBytes = indexBytes
+        self.indexModified = indexModified
+    }
+}

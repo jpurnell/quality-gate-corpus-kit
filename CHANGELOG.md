@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] — 2026-10-06
+
+### Added
+
+- **A run index: `telemetry/<project>/index.jsonl`, one appended line per run.** 1.21.0 made a
+  project's history cheap to hold; it was still expensive to read, because every run file was
+  opened for an outline that averages 6 KB of a file that averages 126 KB. Each line is a
+  `RunIndexEntry`: the run's own `CheckResultMetadata` with diagnostics replaced by per-checker
+  `DiagnosticCounts`, plus the run file's name and size. There is no second schema for a run.
+  - **Written when the run is.** `TelemetryWriter.write(metadata:calibrations:to:)` appends the
+    line after the run file, through a descriptor opened `O_APPEND`. If the append fails the
+    write does not: the run is recorded and unindexed, and readers find it.
+  - **Read, and not believed.** `CorpusReader.loadHistory(for:)` — same signature, same result —
+    reads the index and reconciles it against a listing of the run files. A run file with no
+    line is read for its outline as before; a line with no file is dropped, which is also the
+    containment check, since only paths the reader listed itself are opened; duplicate lines
+    collapse, last wins. A project with no index behaves exactly as it did in 1.21.0. Readers
+    never write the index.
+  - **Rebuildable.** `TelemetryWriter.rebuildIndex(for:)` rewrites a project's index from its
+    run files, atomically. It is the backfill and the repair.
+- `CorpusReader.loadLatestRun(for:)` — the newest run, whole. For callers that loaded a project's
+  entire history to take `.last`.
+- `CorpusReader.historySignature(for:)` — a `HistorySignature` (run-file count, index size and
+  time) from one directory listing per day and one `stat`. Replaces "newest mtime in the tree".
+- `CorpusPath.runIndexPath`; `CheckResultMetadata.init(strippingDiagnosticsFrom:)`.
+
+### Differs from the proposal
+
+`project/plans/proposals/ARunIsOneLine.md` gave `HistorySignature` two fields, the index's size
+and time. It has three: the run-file count is there because a gate built before this release
+writes runs with no line, and a signature that watched only the index would not see them.
+
 ## [1.21.0] — 2026-10-06
 
 ### Added

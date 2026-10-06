@@ -17,6 +17,22 @@ with its reconciliation decision.
 | 9 | `EthicalFlag`/`FiveStepStage`: org's were `CaseIterable` | Conformances adopted. `TrendAnalysis.compute(metric:values:)` NOT adopted — it depends on BusinessMath; it stays in org-judgement-system as an extension on CorpusKit's `TrendAnalysis` |
 | 10 | `CorpusManagerTests` (the only coverage of `CorpusManager`) flipped fail→pass on identical code — parallel with the whole fleet, unchecked git exit codes, global git identity, unborn-branch remote | Moved here hardened: `.serialized`, checked setup commands, repo-local identity, seeded remotes. Verified stable across repeated runs |
 
+## #11 — Readers reconcile the run index; they do not repair it (2026-10-06)
+
+1.22.0 adds `telemetry/<project>/index.jsonl`, the first artifact in the corpus that is
+*derived* from other artifacts rather than recorded. That makes it the first one that can
+disagree with its source, and the decision about who resolves a disagreement is recorded here
+because it will be tempting to revisit.
+
+Resolution: **the run files decide, the reader copes, and only the writer writes.** A reader
+that finds a run with no line reads the run file; it does not append the missing line. A reader
+that repaired would be a second writer of the index, with its own idea of what a line contains —
+the divergence this package exists to prevent, reintroduced through the cache. Repair is
+`TelemetryWriter.rebuildIndex(for:)`, which a person runs.
+
+The cost is that an index can stay short indefinitely if nobody rebuilds it. That is visible
+(the reader logs the count of unindexed runs at `notice`) and it is slow rather than wrong.
+
 ## #10 — Subprocess spawning unified behind ProcessRunner (2026-08-25)
 
 Both prior implementations spawned `git` ad hoc, and each had drifted into a

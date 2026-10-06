@@ -278,6 +278,38 @@ public struct CheckResultMetadata: VersionedCorpusArtifact, Equatable {
         self.truncation = truncation
     }
 
+    /// A copy of `other` with every result's diagnostics removed and nothing else changed —
+    /// including `schemaVersion`, which the memberwise initializer would restamp.
+    ///
+    /// Written field by field on purpose: a property added to this type will not compile here
+    /// until someone decides whether an outline carries it.
+    public init(strippingDiagnosticsFrom other: CheckResultMetadata) {
+        projectID = other.projectID
+        timestamp = other.timestamp
+        environment = other.environment
+        decisionOwner = other.decisionOwner
+        results = other.results.map {
+            CheckResult(checkerId: $0.checkerId, status: $0.status, diagnostics: [],
+                        overrides: $0.overrides, complianceRecords: $0.complianceRecords,
+                        duration: $0.duration)
+        }
+        overrides = other.overrides
+        riskTier = other.riskTier
+        ethicalFlags = other.ethicalFlags
+        consistencyScore = other.consistencyScore
+        complianceCount = other.complianceCount
+        commitSHA = other.commitSHA
+        schemaVersion = other.schemaVersion
+        runScope = other.runScope
+        gateBuild = other.gateBuild
+        identityKind = other.identityKind
+        ciIdentity = other.ciIdentity
+        host = other.host
+        gateMode = other.gateMode
+        baseline = other.baseline
+        truncation = other.truncation
+    }
+
     /// Decodes a ``CheckResultMetadata`` from an external representation, defaulting `complianceCount` to `0` and `commitSHA` to `nil` when absent.
     public init(from decoder: Decoder) throws {
         try self.init(from: decoder, omittingDiagnostics: false)

@@ -39,6 +39,7 @@ public actor TelemetryWriter {
 
         let metadataURL = try sanitizedURL(corpusPath.metadataPath(for: metadata.timestamp), within: corpusPath.basePath)
         try writeJSON(metadata, to: metadataURL)
+        appendIndexLine(for: metadata, runFile: metadataURL, in: corpusPath)
 
         if calibrations.count > 1 {
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -55,6 +56,101 @@ public actor TelemetryWriter {
             let url = try sanitizedURL(corpusPath.calibrationPath(for: metadata.timestamp, index: 0), within: corpusPath.basePath)
             try writeJSON(calibration, to: url)
         }
+    }
+
+    /// Records a just-written run in the project's index.
+    ///
+    /// Never throws. The run file is already on disk and is the record; a run with no index
+    /// line is found by the reader's reconciliation and read from its file. Failing the write
+    /// here would turn a missing optimisation into a missing run.
+    private func appendIndexLine(for metadata: CheckResultMetadata, runFile: URL, in corpusPath: CorpusPath) {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: runFile.path) // SAFETY: runFile was sanitized against the corpus base by the caller
+            let bytes = (attributes[.size] as? NSNumber)?.intValue ?? 0
+            let line = try RunIndex.line(for: metadata, file: Self.indexKey(for: runFile), bytes: bytes)
+            let indexURL = try sanitizedURL(corpusPath.runIndexPath, within: corpusPath.basePath)
+            try RunIndex.append(line, to: indexURL)
+        } catch {
+            Self.logger.warning("Run \(runFile.lastPathComponent, privacy: .public) was written but not indexed; readers will find it by reconciliation: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// A run file's key in the index: its path relative to the project directory.
+    private static func indexKey(for runFile: URL) -> String {
+        "\(runFile.deletingLastPathComponent().lastPathComponent)/\(runFile.lastPathComponent)"
+    }
+
+    /// Rewrites a project's run index from its run files.
+    ///
+    /// The backfill for runs written before the index existed, and the repair for an index
+    /// that reconciliation keeps reporting as short. Each run file is read for its outline and
+    /// diagnostic counts only; the new index replaces the old one atomically, so a reader sees
+    /// one or the other.
+    ///
+    /// A run file that cannot be decoded is skipped and logged — it has no line, exactly as it
+    /// has no place in ``readMetadata(from:startDate:endDate:)``'s results.
+    ///
+    /// - Parameter corpus: The project whose index to rebuild.
+    /// - Returns: The number of lines written. Zero writes nothing.
+    /// - Throws: `IJSError.telemetryWriteFailed` if the project cannot be listed or the index
+    ///   cannot be written.
+    public func rebuildIndex(for corpus: CorpusPath) async throws -> Int {
+        let projectURL = try sanitizedURL(corpus.projectDirectory, within: corpus.basePath)
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: projectURL.path, isDirectory: &isDirectory), isDirectory.boolValue else { // SAFETY: projectURL sanitized against the corpus base
+            return 0
+        }
+
+        var runFiles: [URL] = []
+        do {
+            for dayURL in try fm.contentsOfDirectory(at: projectURL, includingPropertiesForKeys: [.isDirectoryKey]) { // SAFETY: lists the sanitized project directory
+                guard try dayURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { continue }
+                runFiles += try fm.contentsOfDirectory(at: dayURL, includingPropertiesForKeys: nil) // SAFETY: a child of the sanitized project directory
+                    .filter { $0.lastPathComponent.hasSuffix("_metadata.json") }
+            }
+        } catch {
+            throw IJSError.telemetryWriteFailed(
+                reason: "Cannot list \(projectURL.path) to rebuild its index: \(error.localizedDescription)")
+        }
+        runFiles.sort { Self.indexKey(for: $0) < Self.indexKey(for: $1) }
+
+        var index = Data()
+        var count = 0
+        for runFile in runFiles {
+            Self.withTransientMemoryReleased {
+                do {
+                    let data = try Data(contentsOf: runFile, options: .mappedIfSafe)
+                    let digest = try decoder.decode(RunDigest.self, from: data)
+                    let entry = RunIndexEntry(file: Self.indexKey(for: runFile), bytes: data.count,
+                                              outline: digest.outline, counts: digest.counts)
+                    index.append(try RunIndex.line(for: entry))
+                    count += 1
+                } catch {
+                    Self.logger.warning("Leaving \(runFile.path, privacy: .public) out of the rebuilt index: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        guard count > 0 else { return 0 }
+
+        let indexURL = try sanitizedURL(corpus.runIndexPath, within: corpus.basePath)
+        do {
+            try index.write(to: indexURL, options: .atomic)
+        } catch {
+            throw IJSError.telemetryWriteFailed(
+                reason: "Cannot write \(indexURL.path): \(error.localizedDescription)")
+        }
+        return count
+    }
+
+    /// Runs `body`, then drains what it autoreleased — a loop over thousands of run files must
+    /// not keep every one of them alive until it ends.
+    private static func withTransientMemoryReleased(_ body: () -> Void) {
+        #if canImport(ObjectiveC)
+        autoreleasepool(invoking: body)
+        #else
+        body()
+        #endif
     }
 
     /// Reads all metadata artifacts for a project within a date range (inclusive).

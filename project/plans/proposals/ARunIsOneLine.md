@@ -1,6 +1,9 @@
 # Design Proposal — A Run Is One Line
 
-**Status:** proposed — not approved, nothing implemented
+**Status:** approved 2026-10-06 and implemented in 1.22.0. One departure: `HistorySignature`
+carries the run-file count as well as the index's size and time (§3.3, §4) — see the CHANGELOG.
+Open question 1 was settled as a parallel `counts` map in `RunIndexEntry`; question 2 as
+"committed".
 **Date:** 2026-10-06
 **Affects:** `TelemetryWriter.write(metadata:calibrations:to:)`; `CorpusPath`; `CorpusReader`
 (`loadHistory`, a new `loadLatestRun`); a new artifact, `telemetry/<project>/index.jsonl`

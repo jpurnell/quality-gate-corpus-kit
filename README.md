@@ -18,6 +18,8 @@ The corpus directory layout documented here is the canonical schema contract:
 ```
 manifest.yml
 telemetry/<projectID>/<YYYY-MM-DD>/<HHmmss>_{metadata,calibration_N,complexity,orientation}.json
+telemetry/<projectID>/index.jsonl          one line per run — derived, rebuildable, never the truth
+telemetry/<projectID>/work-log.json
 snapshots/<projectID>/<YYYY-MM-DD>.json
 pulse/<label>/PULSE_<label>.json + NARRATIVE_<label>.md
 ```

@@ -56,10 +56,60 @@ public actor PolicyDiscoveryAuditor {
     }
 
     /// Audits a gate run against a specific Pulse.
+    ///
+    /// This method cannot throw, so it cannot say that the score could not be computed.
+    /// Prefer ``checkedAudit(metadata:against:)``, which can.
+    ///
+    /// - Returns: The report. Its `consistencyScore` is `0.0` if the scorer's deduction was
+    ///   not finite — see ``ConsistencyScorer/score(findings:baselineValidity:)``.
     public func audit(
         metadata: CheckResultMetadata,
         against pulse: InstitutionalPulse
     ) -> ConsistencyReport {
+        let findings = findings(in: metadata, against: pulse)
+        let baselineValidity = inferBaselineValidity(from: pulse)
+        return ConsistencyReport(
+            projectID: metadata.projectID,
+            timestamp: metadata.timestamp,
+            pulseWeekLabel: pulse.weekLabel,
+            findings: findings,
+            consistencyScore: scorer.score(findings: findings, baselineValidity: baselineValidity),
+            baselineValidity: baselineValidity
+        )
+    }
+
+    /// Audits a gate run against a specific Pulse, or refuses when no score can be computed.
+    ///
+    /// Identical to the non-throwing `audit(metadata:against:)` whenever the scorer's
+    /// deduction is finite.
+    ///
+    /// - Parameters:
+    ///   - metadata: The gate run to audit.
+    ///   - pulse: The institutional baseline to audit it against.
+    /// - Returns: The report, with a score computed from its findings.
+    /// - Throws: ``ConsistencyScorer/InvalidDeduction`` if the deduction is a NaN or either
+    ///   infinity — a misconfigured scorer weight, named in the error.
+    public func checkedAudit(
+        metadata: CheckResultMetadata,
+        against pulse: InstitutionalPulse
+    ) throws(ConsistencyScorer.InvalidDeduction) -> ConsistencyReport {
+        let findings = findings(in: metadata, against: pulse)
+        let baselineValidity = inferBaselineValidity(from: pulse)
+        return ConsistencyReport(
+            projectID: metadata.projectID,
+            timestamp: metadata.timestamp,
+            pulseWeekLabel: pulse.weekLabel,
+            findings: findings,
+            consistencyScore: try scorer.checkedScore(findings: findings, baselineValidity: baselineValidity),
+            baselineValidity: baselineValidity
+        )
+    }
+
+    /// Every way the run is inconsistent with the Pulse, before any of it is scored.
+    private func findings(
+        in metadata: CheckResultMetadata,
+        against pulse: InstitutionalPulse
+    ) -> [ConsistencyFinding] {
         // Severity decides, not the enclosing checker's status. A checker can pass while
         // emitting warnings — `doc-lint` does — and those warnings are violations. Requiring
         // `status == .failed` made score impact depend on whether a checker chose to fail or
@@ -98,17 +148,7 @@ public actor PolicyDiscoveryAuditor {
             checkerLookup: checkerLookup
         ))
 
-        let baselineValidity = inferBaselineValidity(from: pulse)
-        let score = scorer.score(findings: findings, baselineValidity: baselineValidity)
-
-        return ConsistencyReport(
-            projectID: metadata.projectID,
-            timestamp: metadata.timestamp,
-            pulseWeekLabel: pulse.weekLabel,
-            findings: findings,
-            consistencyScore: score,
-            baselineValidity: baselineValidity
-        )
+        return findings
     }
 
     // MARK: - Matching

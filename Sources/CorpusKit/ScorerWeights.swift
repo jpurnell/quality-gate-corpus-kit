@@ -45,4 +45,21 @@ public struct ScorerWeights: Sendable, Codable, Equatable {
         self.recurrenceBonus = recurrenceBonus
         self.suppressionPattern = suppressionPattern
     }
+
+    /// The names of the weights that are not finite — a NaN or either infinity — in
+    /// declaration order. Empty for every usable set of weights.
+    ///
+    /// A weight is a deduction from a score in `[0, 1]`, and no deduction of that kind is a
+    /// number of points. Nothing in this type prevents one: `.nan` and `.inf` are valid YAML
+    /// scalars, and `init` takes any `Double`. This is how a caller finds out which.
+    public var nonFiniteWeights: [String] {
+        let named: [(name: String, value: Double)] = [
+            ("clusterMatch", clusterMatch),
+            ("anomalyPattern", anomalyPattern),
+            ("unaddressedPolicy", unaddressedPolicy),
+            ("recurrenceBonus", recurrenceBonus),
+            ("suppressionPattern", suppressionPattern),
+        ]
+        return named.filter { !$0.value.isFinite }.map(\.name)
+    }
 }

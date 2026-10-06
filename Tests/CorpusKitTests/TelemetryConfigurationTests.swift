@@ -226,6 +226,33 @@ struct TelemetryConfigurationTests {
         #expect(config.scorerWeights == ScorerWeights.defaults)
     }
 
+    @Test("A scorer weight that is not finite is refused at load, and named", arguments: [
+        (".nan", "clusterMatch"), (".inf", "clusterMatch"), ("-.inf", "clusterMatch"),
+    ])
+    func nonFiniteScorerWeightIsRefused(literal: String, name: String) throws {
+        let yaml = """
+        ijs:
+          projectID: "test"
+          corpusPath: "/tmp"
+          decisionOwner: "tester"
+          defaultRiskTier: 2
+          scorerWeights:
+            \(name): \(literal)
+            anomalyPattern: 0.15
+        """
+        let tmpDir = FileManager.default.temporaryDirectory
+        let yamlURL = tmpDir.appendingPathComponent("test-\(UUID().uuidString).quality-gate.yml")
+        try yaml.write(to: yamlURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: yamlURL) }
+
+        let error = try #require(throws: IJSError.self) {
+            try TelemetryConfiguration.load(from: yamlURL)
+        }
+        #expect(
+            error.errorDescription
+                == "Configuration error: 'scorerWeights' in ijs section must be finite numbers; not finite: clusterMatch")
+    }
+
     @Test("All RiskTier raw values map correctly from YAML integers")
     func riskTierMapping() throws {
         for (raw, expected) in [(1, RiskTier.informational), (2, .operational), (3, .safety), (4, .critical)] {

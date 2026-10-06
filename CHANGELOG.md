@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Intended to ship as the next minor release after 1.22.1 (one-two-three, zero): every change
-below is additive or alters the answer only for a deduction that is not finite. Untagged; the
-heading stays *Unreleased* until the tag exists.
+Intended to ship as 1.23.0, a minor release: every change below is additive or alters the
+answer only for a deduction that is not finite. Not tagged; the heading stays *Unreleased*
+until the tag exists.
 
 ### Added
 

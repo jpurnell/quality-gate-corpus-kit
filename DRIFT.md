@@ -17,6 +17,31 @@ with its reconciliation decision.
 | 9 | `EthicalFlag`/`FiveStepStage`: org's were `CaseIterable` | Conformances adopted. `TrendAnalysis.compute(metric:values:)` NOT adopted — it depends on BusinessMath; it stays in org-judgement-system as an extension on CorpusKit's `TrendAnalysis` |
 | 10 | `CorpusManagerTests` (the only coverage of `CorpusManager`) flipped fail→pass on identical code — parallel with the whole fleet, unchecked git exit codes, global git identity, unborn-branch remote | Moved here hardened: `.serialized`, checked setup commands, repo-local identity, seeded remotes. Verified stable across repeated runs |
 
+## #12 — One ConsistencyScorer, and what a non-finite deduction means (2026-10-06)
+
+`org-judgement-system` still carried a verbatim copy of `ConsistencyScorer` in `IJSCore`,
+left behind when the Phase 0.3 cutover moved the Consistency* value types here and the
+1.17.0 absorption moved the scorer here from quality-gate-swift. The copy drifted exactly
+once, and in the way copies do: 1.21.0 stopped this scorer from answering `1.0` for a NaN
+deduction, and the copy went on answering it.
+
+Resolution: **this package's scorer is the only one.** `org-judgement-system` replaces its
+file with a typealias to `IJSPolicyDiscovery.ConsistencyScorer` (its `fix/gate-clean`
+branch, pinned to 1.22.1). Finite scores were pinned bit for bit in both repositories
+before either changed, against the same 48 recorded bit patterns.
+
+Not unified, deliberately: `PolicyDiscoveryAuditor`. The two differ in behaviour, not in
+drift — this one counts a warning inside a passing checker as a violation (severity
+decides), `IJSCore`'s counts failed checkers only — so replacing one with the other would
+move scores for ordinary input. That is a decision for whoever owns the scores, not a
+deduplication.
+
+And the meaning of a deduction that is not finite, settled here because both repositories
+now inherit it: it is **not a score**. `checkedScore`/`checkedAudit` throw
+`ConsistencyScorer.InvalidDeduction`; the non-throwing `score`/`audit` answer `0.0` for all
+three kinds and log. Before this, NaN was `0.0` (since 1.21.0), `+∞` was `0.0`, and `-∞`
+was `1.0`.
+
 ## #11 — Readers reconcile the run index; they do not repair it (2026-10-06)
 
 1.22.0 adds `telemetry/<project>/index.jsonl`, the first artifact in the corpus that is

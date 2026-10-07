@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Intended to ship as 1.23.0, a minor release: every change below is additive or alters the
+answer only for a deduction that is not finite. Not tagged; the heading stays *Unreleased*
+until the tag exists.
+
+### Added
+
+- **`ConsistencyScorer.checkedScore(findings:)` and `checkedScore(findings:baselineValidity:)` —
+  a consistency score, or a typed refusal.** They throw `ConsistencyScorer.InvalidDeduction`
+  when the deduction is not a finite number. The error carries a `kind` — `.notANumber`,
+  `.positiveInfinity`, `.negativeInfinity` — and `nonFiniteWeights`, the offending weights by
+  name; an empty list means every weight was finite and the sum overflowed.
+- `PolicyDiscoveryAuditor.checkedAudit(metadata:against:)` — the same report as `audit`, or
+  that error. `audit` cannot throw and both of its consumers (`ConsistencyChecker` in
+  quality-gate-swift, `QueryConsistencyTool` in ijs-mcp-server) call it, so the refusal needed
+  a way to reach them that did not break either.
+- `ScorerWeights.nonFiniteWeights` — the names of the weights that are a NaN or an infinity.
+
+### Changed
+
+- **`TelemetryConfiguration.load` refuses a scorer weight that is not finite.** `.nan`, `.inf`
+  and `-.inf` are YAML scalars and Yams hands them over as Doubles; `ijs.scorerWeights` took
+  them. It now throws `IJSError.configurationError` naming the weight, where the file is read.
+- **`ConsistencyScorer.score` answers `0.0` for every non-finite deduction, and logs it.** 1.21.0
+  made a NaN deduction score zero rather than one. Negative infinity was the case that fix
+  missed: `max(0, min(1, 1 - -inf))` is `1.0`, so a weight of `-.inf` still read as an
+  institution with nothing to fix. `score` cannot throw, so zero — the value that fails every
+  threshold — is still its answer; what is new is that the answer is the same for all three
+  kinds, is stated in `- Returns:`, and is written to the log at `error` with the weights
+  named. Callers that can handle a refusal should move to `checkedScore`.
+
+### Unchanged, and pinned
+
+**Every score for a finite deduction is bit-for-bit what 1.22.1 returned.**
+`ConsistencyScorerFiniteParityTests` was committed against the unmodified scorer first: 48
+default-weight bit patterns captured from `origin/main`, and the original clamp arithmetic
+written out independently and compared across five weight sets, twelve finding lists and
+every baseline validity. A non-finite weight that no finding uses still does not disturb the
+score, as 1.21.0 established.
+
+### Where a non-finite deduction can come from
+
+Only from the weights. A deduction is a sum of `ScorerWeights` fields times a constant
+(`1.0`, `0.5`, `0.25`); the scorer reads nothing else from a finding — not `clusterRiskWeight`,
+which *is* computed from a z-score and could be a NaN. So: a weight set in `.quality-gate.yml`
+(`consistency.scorerWeights`, decoded by the gate; `ijs.scorerWeights`, decoded here and now
+refused), a weight passed to `ScorerWeights.init` in code, or finite weights large enough to
+overflow. `JSONDecoder` rejects non-finite numbers by default, so a decoded `ScorerWeights`
+is not a source.
+
+### Not done here
+
+`ConsistencyChecker` (quality-gate-swift) and `QueryConsistencyTool` (ijs-mcp-server) still
+call `audit`. Until they adopt `checkedAudit`, a non-finite `consistency.scorerWeights` in a
+gated repository scores `0.00` with an error in the log rather than a diagnostic in the
+report.
+
 ## [1.22.1] — 2026-10-06
 
 ### Changed

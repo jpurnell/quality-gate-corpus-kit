@@ -110,6 +110,14 @@ public struct TelemetryConfiguration: Sendable, Codable, Equatable {
         } else {
             scorerWeights = .defaults
         }
+        // `.nan` and `.inf` are YAML scalars and arrive here as Doubles. Refused where the
+        // file is read, by name, rather than discovered later as a score nobody can explain.
+        let nonFinite = scorerWeights.nonFiniteWeights
+        guard nonFinite.isEmpty else {
+            throw IJSError.configurationError(
+                reason: "'scorerWeights' in ijs section must be finite numbers; not finite: "
+                    + nonFinite.joined(separator: ", "))
+        }
 
         return TelemetryConfiguration(
             projectID: projectID,

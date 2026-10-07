@@ -147,7 +147,7 @@ should surface it rather than discard it. Bump a producer only in step with its 
 - [x] IJSDashboardCore — `CorpusReader`, trends, portfolio and project summaries
 - [x] JudgmentWorkbench — findings inbox, acknowledgeable rules, marker writing
 
-- [x] 64 source files, **81 test files** across five modules (CorpusKit alone: 48 and 56)
+- [x] 66 source files, **87 test files** across five modules (CorpusKit alone: 50 and 58)
       — the best-covered package in this tier, which is appropriate for something whose
       failures are silent and retroactive
 - [x] **One audited subprocess kernel.** Every spawn routes through `ProcessRunner`,
@@ -165,6 +165,14 @@ should surface it rather than discard it. Bump a producer only in step with its 
       by `TelemetryWriter`, reconciled by every reader against the run files and never trusted
       over them. `loadHistory` reads it; `loadLatestRun` and `historySignature` are new. See
       `project/plans/proposals/ARunIsOneLine.md` and `DRIFT.md` #11.
+- [x] **A consistency score that can say it could not be computed.**
+      `ConsistencyScorer.checkedScore` and `PolicyDiscoveryAuditor.checkedAudit` throw
+      `ConsistencyScorer.InvalidDeduction` — kind and offending weights named — for a NaN or
+      infinite deduction; `TelemetryConfiguration.load` refuses such a weight at the file.
+      `score`/`audit` cannot throw and still answer `0.0`, now for negative infinity too
+      (it scored `1.0`) and with an error logged. Finite scores are pinned bit for bit by
+      `ConsistencyScorerFiniteParityTests`. Unreleased; the gate and ijs-mcp-server have
+      not yet adopted the throwing calls.
 - [x] **Containment on every corpus read.** The pulse readers were the last ones taking
       a path by interpolation without it; they now resolve and component-check like the
       rest. See *Priorities* for what this class of defect still costs.
@@ -211,7 +219,10 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-10-06 — added the run index (1.22.0) to *What's Working*; priority 6
+**Last Updated:** 2026-10-06 — added the checked consistency score (unreleased) to *What's
+Working*, with the two consumers that have not adopted it named there rather than implied; refreshed
+the file counts (64/81 → 66/87), which 1.21.0–1.22.1 had moved without this line following.
+Earlier the same day: added the run index (1.22.0) to *What's Working*; priority 6
 still stands for `listAvailableLabels` and `loadLatestOrientationReport`, which the index does
 not touch. Earlier the same day: added `loadHistory` (1.21.0) to *What's Working* and
 priority 6, the unmeasured readers it leaves behind. Also recorded 1.20.0 in the CHANGELOG,

@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Intended to ship as 1.23.0, a minor release: every change below is additive or alters the
-answer only for a deduction that is not finite. Not tagged; the heading stays *Unreleased*
-until the tag exists.
+## [1.23.0] - 2026-10-06
+
+A minor release: every change below is additive or alters the answer only for a deduction
+that is not finite.
 
 ### Added
 

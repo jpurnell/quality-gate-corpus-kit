@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Commits to this repository are gated again, and a push is checked for more than its
+  tags.** `core.hooksPath` has pointed at `.githooks` since the development-guidelines
+  process was adopted (`f00513d`, 2026-07-27), and that directory held one file: a
+  `pre-push` that ran `quality-gate --check release-readiness` and nothing else. So a commit
+  ran no hook at all, and a push was checked for changelog/tag parity only. The `pre-commit`
+  and `pre-push` that an installer later wrote into `.git/hooks/` (2026-08-28) were never
+  consulted — git reads one hook directory, and it was the other one.
+
+  Nothing recorded a decision to reduce the hooks. The setup script of the time (framework
+  2.1.3) installed only the tag-parity guard; its current version (2.4.1) writes both hooks
+  into `.githooks/`. This is that generator's output, unmodified, for a repository with no
+  CI workflow:
+  - `.githooks/pre-commit` — `swift build`, then `quality-gate --check all --strict`.
+  - `.githooks/pre-push` — `swift build`, then `quality-gate --check all --strict
+    --release-boundary`. The release-boundary flag is the tag-parity check the old hook made,
+    at full strength, so that behaviour is kept rather than replaced.
+  - `scripts/bootstrap.sh` — sets `core.hooksPath` in a fresh clone, which a repository
+    cannot do for itself.
+
+  A missing `quality-gate` binary now refuses the push instead of skipping the check: with
+  no CI, a hook that exits 0 without running is a check reported and not made.
+
+  The full gate was run on the tree as it stood before this change, with every checker
+  selected and `--strict`: 49 of 49 checkers, 0 errors, 0 warnings. The newly live hooks
+  found nothing to fix. No source or test file changed.
+
 ## [1.23.0] - 2026-10-06
 
 A minor release: every change below is additive or alters the answer only for a deduction

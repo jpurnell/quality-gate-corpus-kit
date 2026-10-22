@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CorpusPath.stackMapDirectory`, `stackMapPath` and `stackMapHistoryPath(date:)`: where the stack map
+  lives in the corpus (`stack-map/stack-map.json`, and one file per UTC day under `stack-map/history/`).
+  The corpus holds the path convention only; the model and its decoder live in StackMapKit.
+
 ## [1.23.0] - 2026-10-06
 
 A minor release: every change below is additive or alters the answer only for a deduction

@@ -1,3 +1,5 @@
+// macOS only: spawns /usr/bin/git, and Foundation.Process does not exist on iOS.
+#if os(macOS)
 import Foundation
 import QualityGateLogging
 
@@ -207,3 +209,4 @@ public actor CorpusManager {
         return fmt.string(from: Date())
     }
 }
+#endif

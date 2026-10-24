@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "quality-gate-corpus-kit",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v14), .iOS(.v18)],
     products: [
         .library(name: "CorpusKit", targets: ["CorpusKit"]),
         .library(name: "IJSAggregator", targets: ["IJSAggregator"]),

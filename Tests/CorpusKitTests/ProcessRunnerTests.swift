@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 import Foundation
 @testable import CorpusKit
@@ -174,3 +175,4 @@ struct ProcessRunnerTests {
         }
     }
 }
+#endif

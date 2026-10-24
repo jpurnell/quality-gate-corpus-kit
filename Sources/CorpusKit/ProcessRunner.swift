@@ -1,3 +1,5 @@
+// macOS only: spawns /usr/bin/git, and Foundation.Process does not exist on iOS.
+#if os(macOS)
 import Foundation
 import QualityGateLogging
 
@@ -227,3 +229,4 @@ public enum ProcessRunner {
         }
     }
 }
+#endif

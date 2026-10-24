@@ -44,6 +44,20 @@ Read documents in this order for full context recovery:
 
 For quick recovery (same-day, simple bug fixes), read only items 4-5.
 
+## After Cloning
+
+`.githooks/` is tracked, but `core.hooksPath` is per-clone git config and cannot
+be committed — git will not let a repository enable its own hooks. So a fresh
+clone has the hook files and does not run them, until:
+
+```bash
+./scripts/bootstrap.sh
+```
+
+That sets `core.hooksPath` and checks that `swift` and `quality-gate` are
+present, since the hooks need both. It is idempotent. If you would rather not
+run a script, `git config core.hooksPath .githooks` is the part that matters.
+
 ## Development Workflow
 
 ```
@@ -66,6 +80,16 @@ For quick recovery (same-day, simple bug fixes), read only items 4-5.
 ## Quality Gate
 
 Run `quality-gate` before every commit. All checks must pass.
+
+The tracked hooks do it: `.githooks/pre-commit` runs `quality-gate --check all --strict`
+and `.githooks/pre-push` runs the same with `--release-boundary`, which is the changelog/tag
+parity check the earlier push hook made on its own. There is no CI workflow here, so the
+hooks are the only automatic gate. `.git/hooks/` is not consulted while `core.hooksPath`
+points at `.githooks`; a hook file there is inert.
+
+The gate binary is built from quality-gate-swift, which depends on this package. That is
+not a cycle at hook time: the hooks run the *deployed* binary, which holds the release of
+this package it was built against, not the working tree.
 
 ## References
 

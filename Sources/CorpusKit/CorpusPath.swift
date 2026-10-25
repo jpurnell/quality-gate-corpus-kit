@@ -110,6 +110,26 @@ public struct CorpusPath: Sendable, Equatable {
         "\(pulseDirectory(weekLabel: weekLabel))/NARRATIVE_\(weekLabel).md"
     }
 
+    /// Stack map directory: `<basePath>/stack-map`
+    ///
+    /// Holds the layered map of the workspace's packages, written by the `stackmap` tool
+    /// (StackMapKit) and read by the dashboard. The corpus does not decode it.
+    public var stackMapDirectory: String {
+        "\(basePath)/stack-map"
+    }
+
+    /// The current stack map: `<stackMapDirectory>/stack-map.json`
+    public var stackMapPath: String {
+        "\(stackMapDirectory)/stack-map.json"
+    }
+
+    /// A day's copy of the stack map: `<stackMapDirectory>/history/YYYY-MM-DD.json` (UTC day).
+    ///
+    /// One file per day gives trends over time, such as untagged packages or platform coverage.
+    public func stackMapHistoryPath(date: Date) -> String {
+        "\(stackMapDirectory)/history/\(Self.dayFormatter.string(from: date)).json"
+    }
+
     /// Corpus manifest path: `<basePath>/manifest.yml`
     public var manifestPath: String {
         "\(basePath)/manifest.yml"

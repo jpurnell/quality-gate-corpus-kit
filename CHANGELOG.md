@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-25
+
+A minor release: `CorpusPath` gains the stack map's location; the rest is the hooks fix below.
+
 ### Added
 - `CorpusPath.stackMapDirectory`, `stackMapPath` and `stackMapHistoryPath(date:)`: where the stack map
   lives in the corpus (`stack-map/stack-map.json`, and one file per UTC day under `stack-map/history/`).

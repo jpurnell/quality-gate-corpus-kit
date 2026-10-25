@@ -219,7 +219,8 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-10-09 — hooks: `.githooks/` now holds the generated `pre-commit` and
+**Last Updated:** 2026-10-25 — reconciled against 1.24.0: `CorpusPath.stackMapPath` and friends (the stack map's
+location in the corpus) shipped, with the hooks fix that was waiting under *Unreleased*. Previously, 2026-10-09 — hooks: `.githooks/` now holds the generated `pre-commit` and
 `pre-push` (full gate, `--strict`, release boundary on push) in place of the lone tag-parity
 `pre-push`, with `scripts/bootstrap.sh`; before this, commits here ran no hook. The gate on
 the existing tree was clean (49 of 49 checkers), so nothing in the plan's status, priorities

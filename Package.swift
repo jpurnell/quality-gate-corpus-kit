@@ -16,7 +16,7 @@ let package = Package(
         // 1.5.0, not 1.1.0: the absorbed IJS layer uses `Diagnostic.isViolation`, which
         // arrived after 1.1.x. The old floor resolved to 1.1.1 through Package.resolved and
         // compiled only because nothing here needed the newer surface.
-        .package(url: "https://github.com/jpurnell/quality-gate-types.git", from: "1.7.0"),
+        .package(url: "https://github.com/jpurnell/quality-gate-types.git", from: "1.8.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
     ],

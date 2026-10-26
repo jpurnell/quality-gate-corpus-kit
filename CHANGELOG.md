@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-10-25
+
+### Added
+- **iOS 18 platform declaration**, so the read side (`CorpusKit`, `IJSDashboardCore`, `JudgmentWorkbench`) builds for iOS and iPadOS. Requires quality-gate-types 1.8.0, which declares iOS.
+
+### Changed
+- `ProcessRunner` and `CorpusManager` (and their tests) are compiled on macOS only: `Foundation.Process` does not exist on iOS, and both are writer-side git code. `ProjectIdentity.originRemoteURL` keeps its signature and returns `nil` off macOS, so identity falls back to the directory name.
+
 ## [1.24.0] - 2026-10-25
 
 A minor release: `CorpusPath` gains the stack map's location; the rest is the hooks fix below.

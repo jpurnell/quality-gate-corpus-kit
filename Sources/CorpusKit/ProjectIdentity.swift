@@ -120,6 +120,7 @@ public struct ProjectIdentity: Sendable, Equatable {
     /// Reads the `origin` remote URL for the repository containing `cwd`,
     /// or `nil` when git is unavailable or the directory is not a repo.
     public static func originRemoteURL(cwd: URL) -> String? {
+        #if os(macOS)
         let result: ProcessResult
         do {
             // SAFETY: Fixed executable (/usr/bin/env) and fixed argv; the only dynamic value is cwd.path, passed as git's -C argument (not shell-interpreted), so no command injection [CWE-78].
@@ -135,5 +136,9 @@ public struct ProjectIdentity: Sendable, Equatable {
         guard result.succeeded else { return nil }
         let url = result.standardOutputText
         return url.isEmpty ? nil : url
+        #else
+        // No subprocesses on iOS; identity falls back to the directory name.
+        return nil
+        #endif
     }
 }

@@ -1,13 +1,13 @@
 {
-  "originHash" : "82f757455ba686f3ecfc7bb004ca905369ddac4185f2dec7db6d23195e1088bf",
+  "originHash" : "b3366045944a4d0af1d71ccd4f26308d4da5a056ad53c791f822a86d44b81d97",
   "pins" : [
     {
       "identity" : "quality-gate-types",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpurnell/quality-gate-types.git",
       "state" : {
-        "revision" : "0f4392e3f145f54aafe4d78d9b3db5bb13aa7f7a",
-        "version" : "1.7.0"
+        "revision" : "2e0d1c86a3297ff1c038c2a3d6391eba7d0f386d",
+        "version" : "1.8.0"
       }
     },
     {

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 import Foundation
 @testable import CorpusKit
@@ -319,3 +320,4 @@ struct CorpusManagerTests {
         #expect(nothingCount == 1)
     }
 }
+#endif

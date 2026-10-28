@@ -19,7 +19,8 @@ data is for.
 ## Who depends on this
 
 `quality-gate-swift` (writing telemetry, generating pulses), the corpus service, and the
-dashboard. Anything that touches corpus data should route through `CorpusKit` rather than
+dashboard. Since 2026-10-27/28 also `ijs-dashboard-api` (`IJSDashboardData`, the loader that moved out of
+`quality-gate-dashboard`; from 1.26.0) and, through it and in its tests, `ijs-dashboard-server`. Anything that touches corpus data should route through `CorpusKit` rather than
 reading the layout directly.
 
 ## The reading layer
@@ -173,6 +174,11 @@ should surface it rather than discard it. Bump a producer only in step with its 
       (it scored `1.0`) and with an error logged. Finite scores are pinned bit for bit by
       `ConsistencyScorerFiniteParityTests`. ~~Unreleased;~~ Released as 1.23.0 (2026-10-06).
       The gate and ijs-mcp-server have not yet adopted the throwing calls.
+- [x] **The read side builds for iOS 18** (1.25.0, 2026-10-25): `CorpusKit`, `IJSDashboardCore` and
+      `JudgmentWorkbench` declare iOS; `ProcessRunner` and `CorpusManager` are macOS only.
+- [x] **`WriterCensus.init(persons:machines:)` is public** (1.26.0, 2026-10-27), so a client that receives a
+      census over the wire (`ijs-dashboard-api`'s `WireReader`) can rebuild one. `ijs-dashboard-api` 0.1.0 waited
+      on this tag, and named the package by path until it existed.
 - [x] **Containment on every corpus read.** The pulse readers were the last ones taking
       a path by interpolation without it; they now resolve and component-check like the
       rest. See *Priorities* for what this class of defect still costs.
@@ -219,7 +225,9 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-10-25 — reconciled against 1.24.0: `CorpusPath.stackMapPath` and friends (the stack map's
+**Last Updated:** 2026-10-28 — reconciled against 1.25.0 and 1.26.0 (the iOS read side and the public
+`WriterCensus` initialiser added to Current Status; `ijs-dashboard-api` and `ijs-dashboard-server` added to who
+depends on this) and the CHANGELOG given link references for every tagged version it lists. Previously, 2026-10-25 — reconciled against 1.24.0: `CorpusPath.stackMapPath` and friends (the stack map's
 location in the corpus) shipped, with the hooks fix that was waiting under *Unreleased*. Previously, 2026-10-09 — hooks: `.githooks/` now holds the generated `pre-commit` and
 `pre-push` (full gate, `--strict`, release boundary on push) in place of the lone tag-parity
 `pre-push`, with `scripts/bootstrap.sh`; before this, commits here ran no hook. The gate on

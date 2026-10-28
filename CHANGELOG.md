@@ -483,3 +483,23 @@ writes runs with no line, and a signature that watched only the index would not 
 
 - Baseline release prior to the path-guard containment fix. See git history and
   `DRIFT.md` for the Phase 0.3 reconciliation record.
+
+[Unreleased]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.26.0...HEAD
+[1.26.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.25.0...1.26.0
+[1.25.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.24.0...1.25.0
+[1.24.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.23.0...1.24.0
+[1.23.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.22.1...1.23.0
+[1.22.1]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.22.0...1.22.1
+[1.22.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.21.0...1.22.0
+[1.21.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.20.0...1.21.0
+[1.20.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.19.1...1.20.0
+[1.19.1]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.19.0...1.19.1
+[1.19.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.18.0...1.19.0
+[1.18.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.17.0...1.18.0
+[1.17.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.16.0...1.17.0
+[1.16.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.15.0...1.16.0
+[1.15.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.14.0...1.15.0
+[1.14.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.13.0...1.14.0
+[1.13.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.12.1...1.13.0
+[1.12.1]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.12.0...1.12.1
+[1.12.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.11.0...1.12.0

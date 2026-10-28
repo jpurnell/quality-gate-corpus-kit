@@ -24,6 +24,16 @@ public struct WriterCensus: Sendable, Equatable {
     /// Distinct writer-identity keys (person + machine granularity), sorted.
     public let machines: [String]
 
+    /// Creates a census from its two lists.
+    ///
+    /// For a reader that received the lists (the dashboard server's client reads them off the wire) and cannot
+    /// recompute them. The lists are kept as given, so a caller that wants them sorted sorts them first, as
+    /// ``census(of:windowDays:now:)`` does.
+    public init(persons: [String], machines: [String]) {
+        self.persons = persons
+        self.machines = machines
+    }
+
     /// Whether a second distinct person appeared within the window.
     public var tripped: Bool {
         persons.count >= 2

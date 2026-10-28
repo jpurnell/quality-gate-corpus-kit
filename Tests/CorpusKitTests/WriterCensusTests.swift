@@ -39,6 +39,19 @@ struct WriterCensusTests {
 
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
+    @Test("a census can be built from its two lists, for a reader that received them rather than computed them")
+    func memberwise() {
+        let quiet = WriterCensus(persons: ["jpurnell"], machines: ["studio.local", "builder-01.local"])
+        #expect(quiet.persons == ["jpurnell"])
+        #expect(quiet.machines == ["studio.local", "builder-01.local"])
+        #expect(!quiet.tripped)
+        #expect(quiet.standingWarning == nil)
+        let tripped = WriterCensus(persons: ["guest", "jpurnell"], machines: [])
+        #expect(tripped.tripped)
+        #expect(tripped.standingWarning?.contains("guest, jpurnell") == true)
+        #expect(quiet == WriterCensus(persons: ["jpurnell"], machines: ["studio.local", "builder-01.local"]))
+    }
+
     @Test("a single writer never trips")
     func singleWriterQuiet() {
         let census = WriterCensus.census(of: [

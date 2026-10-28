@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `WriterCensus.init(persons:machines:)` is public. A client that receives a project's census over the wire
+  could not rebuild one: the memberwise initialiser was internal and the only public route recomputed the census
+  from telemetry. Additive; the next release is 1.26.0.
+
 ## [1.25.0] - 2026-10-25
 
 ### Added

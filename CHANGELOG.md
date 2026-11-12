@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CorpusReader.latestStandardResult(of:for:)`, and its result type `LatestCheckerResult` and failure `LatestResultError`: one
+  checker's most recent standard-mode result **with its diagnostics**, plus the run's time, commit and gate build. It chooses the
+  run from the outlines by the same fold as `TimestampedRun.latestStandardResults(of:)`, then decodes **that one run file** in
+  full and keeps nothing. It writes nothing: the index still drops diagnostics to stay small, so a run takes up no more space.
+  Returns `nil` when no standard-mode run holds the checker; a chosen file that cannot be read in full is
+  `LatestResultError.runFileUnreadable` (fixed case, no path or system text), never `nil` and never an empty success.
+  For the dashboard's Checkers tab, which showed that a checker failed and not why
+  (`quality-gate-dashboard` `project/plans/proposals/2026-11-12_CheckerDiagnostics.md`). Additive; the next release is 1.27.0.
+
 ## [1.26.0] - 2026-10-27
 
 ### Added

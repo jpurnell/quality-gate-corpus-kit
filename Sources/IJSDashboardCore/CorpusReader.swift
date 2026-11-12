@@ -103,6 +103,44 @@ public struct CorpusReader: Sendable {
                               latestStandardResults: Array(latestForChecker.values))
     }
 
+    /// One checker's most recent standard-mode result, with its diagnostics, reading a single run file in full.
+    ///
+    /// The run is chosen from the outlines (the index, reconciled against the files present), by the same fold as
+    /// ``TimestampedRun/latestStandardResults(of:)``: the newest standard-mode run that contains the checker. Only that file is then
+    /// decoded in full, in a transient-memory scope, so the cost is one run file and nothing is kept. Nothing is written: the index
+    /// drops diagnostics to stay small, and this does not put them back.
+    ///
+    /// - Parameters:
+    ///   - checker: The checker's id.
+    ///   - project: The project identifier; must be a single path component.
+    /// - Returns: The result and its run's facts, or `nil` when no standard-mode run of the project contains the checker.
+    /// - Throws: When `project` is not a single path component or escapes the corpus, when a telemetry directory cannot be listed, or
+    ///   ``LatestResultError/runFileUnreadable`` when the chosen run file cannot be read in full.
+    public func latestStandardResult(of checker: String, for project: String) throws -> LatestCheckerResult? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let outlines = try outlines(for: project, decoder: decoder)
+        guard let chosen = outlines.last(where: { outline in
+            outline.run.metadata.gateMode == .standard && outline.run.metadata.results.contains { $0.checkerId == checker }
+        }) else { return nil }
+
+        var found: LatestCheckerResult?
+        Self.withTransientMemoryReleased {
+            guard let data = FileManager.default.contents(atPath: chosen.filePath) else { return } // SAFETY: path from the outlines, contained in the corpus
+            guard case .success(let metadata) = Result(catching: { try decoder.decode(CheckResultMetadata.self, from: data) }) else {
+                Self.logger.warning("Could not read \(chosen.filePath, privacy: .public) in full for a checker's latest result")
+                return
+            }
+            guard let result = metadata.results.last(where: { $0.checkerId == checker }) else { return }
+            found = LatestCheckerResult(
+                result: result, projectID: metadata.projectID, timestamp: metadata.timestamp, commitSHA: metadata.commitSHA,
+                gateBuild: metadata.gateBuild, gateMode: metadata.gateMode)
+        }
+        guard let found else { throw LatestResultError.runFileUnreadable }
+        return found
+    }
+
     /// Every run of a project as an outline, ascending by timestamp, with the file it is in.
     ///
     /// Reads the project's run index where there is one and reconciles it against the run

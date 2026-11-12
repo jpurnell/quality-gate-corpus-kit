@@ -176,6 +176,11 @@ should surface it rather than discard it. Bump a producer only in step with its 
       The gate and ijs-mcp-server have not yet adopted the throwing calls.
 - [x] **The read side builds for iOS 18** (1.25.0, 2026-10-25): `CorpusKit`, `IJSDashboardCore` and
       `JudgmentWorkbench` declare iOS; `ProcessRunner` and `CorpusManager` are macOS only.
+- [x] **`CorpusReader.latestStandardResult(of:for:)`** (1.27.0, 2026-11-12): one checker's most recent
+      standard-mode result with its diagnostics and the run's time, commit and gate build, reading a single run
+      file in full and writing nothing (the index still drops diagnostics, so a run takes up no more space). For
+      the dashboard's Checkers tab, which showed that a checker failed and not why. The run is chosen by the
+      same fold as `latestStandardResults`; an unreadable chosen file is `LatestResultError.runFileUnreadable`.
 - [x] **`WriterCensus.init(persons:machines:)` is public** (1.26.0, 2026-10-27), so a client that receives a
       census over the wire (`ijs-dashboard-api`'s `WireReader`) can rebuild one. `ijs-dashboard-api` 0.1.0 waited
       on this tag, and named the package by path until it existed.
@@ -225,7 +230,8 @@ should surface it rather than discard it. Bump a producer only in step with its 
 
 ---
 
-**Last Updated:** 2026-10-28 — reconciled against 1.25.0 and 1.26.0 (the iOS read side and the public
+**Last Updated:** 2026-11-12 — reconciled against 1.27.0: `CorpusReader.latestStandardResult(of:for:)` added to Current
+Status, and the CHANGELOG given its 1.27.0 section and link references. Previously, 2026-10-28 — reconciled against 1.25.0 and 1.26.0 (the iOS read side and the public
 `WriterCensus` initialiser added to Current Status; `ijs-dashboard-api` and `ijs-dashboard-server` added to who
 depends on this) and the CHANGELOG given link references for every tagged version it lists. Previously, 2026-10-25 — reconciled against 1.24.0: `CorpusPath.stackMapPath` and friends (the stack map's
 location in the corpus) shipped, with the hooks fix that was waiting under *Unreleased*. Previously, 2026-10-09 — hooks: `.githooks/` now holds the generated `pre-commit` and

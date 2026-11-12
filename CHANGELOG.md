@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-11-12
+
 ### Added
 - `CorpusReader.latestStandardResult(of:for:)`, and its result type `LatestCheckerResult` and failure `LatestResultError`: one
   checker's most recent standard-mode result **with its diagnostics**, plus the run's time, commit and gate build. It chooses the
@@ -14,8 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   full and keeps nothing. It writes nothing: the index still drops diagnostics to stay small, so a run takes up no more space.
   Returns `nil` when no standard-mode run holds the checker; a chosen file that cannot be read in full is
   `LatestResultError.runFileUnreadable` (fixed case, no path or system text), never `nil` and never an empty success.
-  For the dashboard's Checkers tab, which showed that a checker failed and not why
-  (`quality-gate-dashboard` `project/plans/proposals/2026-11-12_CheckerDiagnostics.md`). Additive; the next release is 1.27.0.
+  For the IJS dashboard's Checkers tab, which showed that a checker failed and not why. Additive.
 
 ## [1.26.0] - 2026-10-27
 
@@ -494,7 +495,8 @@ writes runs with no line, and a signature that watched only the index would not 
 - Baseline release prior to the path-guard containment fix. See git history and
   `DRIFT.md` for the Phase 0.3 reconciliation record.
 
-[Unreleased]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.26.0...HEAD
+[Unreleased]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.27.0...HEAD
+[1.27.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.26.0...1.27.0
 [1.26.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.25.0...1.26.0
 [1.25.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.24.0...1.25.0
 [1.24.0]: https://github.com/jpurnell/quality-gate-corpus-kit/compare/1.23.0...1.24.0

@@ -127,7 +127,7 @@ public struct CorpusReader: Sendable {
 
         var found: LatestCheckerResult?
         Self.withTransientMemoryReleased {
-            guard let data = FileManager.default.contents(atPath: chosen.filePath) else { return } // SAFETY: path from the outlines, contained in the corpus
+            guard let data = FileManager.default.contents(atPath: chosen.filePath) else { return }
             guard case .success(let metadata) = Result(catching: { try decoder.decode(CheckResultMetadata.self, from: data) }) else {
                 Self.logger.warning("Could not read \(chosen.filePath, privacy: .public) in full for a checker's latest result")
                 return
